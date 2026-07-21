@@ -28,8 +28,11 @@ Console roles (why each block exists):
 - [x] Results table (`docs/results.md`), compensation sweep
       (`docs/compensation.md`), findings (`docs/design-notes.md`)
 - [x] Reviewer's one-pager (`docs/review-brief.md`)
-- [ ] **Topology review — Fable, per `model-routing-policy`.** Present
-      both; decide nothing here.
+- [x] **Topology review — DONE 2026-07-22** (`docs/topology-review.md`):
+      two-stage Miller; accept 56.8 dB → rewrite row 5 as THD; Cc 2p /
+      Rz 20k; line-level only (TT 4 mA pad rules out class-AB); O1 closed
+      (3.3 V VAPWR available, not taken); series coupling cap mandatory.
+      Also fixed harness bugs H1/H2 (untagged benches) it found.
 
 ## Phase 1 — close the op-amp (after the review)
 
