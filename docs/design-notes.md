@@ -275,7 +275,53 @@ Why it is not a problem here, and where it would be:
   hundred draws and the layout's actual common-centroid matching, which
   is a phase-2 (post-layout) task.
 
-## 9. Bench construction choices worth not re-deriving
+## 9. H1/H2 — an untagged bench masked a failed run as a circuit result
+
+Caught by the topology review's harness audit
+([`topology-review.md`](topology-review.md)), and it is the same class of
+bug as §5's one-directional step: **a bench reporting a number without
+the run that produced it being uniquely identified.**
+
+`bench_op` and `bench_psrr` built their artifact tag from `topo` and
+`load` only — no `tag_extra` — while `bench_ac` and `bench_tran` both
+took one. So every corner in a `corners.py` sweep wrote the same
+`op_miller_ota_line.{sp,log}`, overwriting the previous corner's files.
+
+The returned *numbers* were never corrupted (they are parsed from each
+run's stdout, not from the file), and re-running with per-corner tags
+reproduced the compensation verdicts **byte-identical** — the aggressive
+point was never actually mis-measured. But two real problems remained:
+
+1. **A failed run was silently rendered as a circuit result.** The first
+   `corners.md` showed ff/+85 °C under aggressive compensation as
+   `-- V / -- µA / all 8 devices out of saturation`. That row was not a
+   marginal corner — it was an operating-point analysis that produced no
+   readable output that one time, and the `sat_margin > 0` test turned
+   its NaN `Vds` into a confident "every device is in the linear
+   region". A DC failure wearing the costume of a saturation result,
+   exactly the §2 / §5 pattern again.
+2. **The evidence was unrecoverable.** The `.log` for that corner had
+   already been overwritten by the next one, so the failure could not be
+   debugged from the artifacts.
+
+Fixes:
+- `bench_op` and `bench_psrr` now take `tag_extra`; `corners.py` passes
+  the corner tag, so every run has its own recoverable `.sp`/`.log`.
+- `bench_op` returns a `converged` flag (true iff `v(vout)` parsed), and
+  `corners.py` reports a non-converged run as **"RUN FAILED — rerun this
+  corner"**, never as a saturation verdict.
+
+Re-run confirms it: **all 51 corners converge, 0 failures, ff/+85 °C is
+a clean 0.9005 V / 80.9 µA identical across all three compensation
+points** (Cc/Rz carry no DC current, so they *must* be identical — that
+identity is now a checked invariant, not a hope). The transient parse
+failure that produced the original bad row did not recur.
+
+**Standing rule for this repo, from the reviewer:** every bench takes a
+tag that includes every parameter that can change its result, and every
+asymmetric circuit is measured in both directions.
+
+## 10. Bench construction choices worth not re-deriving
 
 - **Open-loop AC with the DC loop closed.** The feedback path is a 1 GH
   inductor (short at DC, open at AC) and the stimulus arrives through a

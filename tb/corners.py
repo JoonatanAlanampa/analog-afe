@@ -84,9 +84,12 @@ def run_pvt():
             at(p, t, v)
             tag = f"_{p}_{t}_{v}".replace(".", "p")
             ac = bench_ac("miller_ota", LOAD, params=params, tag_extra=tag)
-            op = bench_op("miller_ota", LOAD)
-            bad = [i for i, d in op["devices"].items()
-                   if not (d["sat_margin"] > 0)]
+            op = bench_op("miller_ota", LOAD, tag_extra=tag)
+            if not op.get("converged", True):
+                bad = ["RUN FAILED (no op-point) — rerun this corner"]
+            else:
+                bad = [i for i, d in op["devices"].items()
+                       if not (d["sat_margin"] > 0)]
             rows.append(dict(comp=name, process=p, temp=t, vdd=v,
                              a_lf_db=ac.get("a_lf_db"),
                              ugf_hz=ac.get("ugf_hz"),

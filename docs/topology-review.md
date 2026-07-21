@@ -68,10 +68,14 @@ empirically answered: it does not, over the box that matters. The
 "conservative" alternative is conservative in name only — it fails
 nominally and everywhere else.
 
-**One caveat before this is signed off** — see harness finding H1: one row
-of the aggressive table (ff/+85 °C) reports an invalid operating point.
-That is a bench artifact, not a circuit failure, but the table should be
-regenerated with H1 fixed before it is quoted as signoff evidence.
+**Caveat RESOLVED** — H1 is fixed (`bench_op`/`bench_psrr` now tagged per
+corner, with a `converged` guard so a failed run reports "RUN FAILED"
+instead of a bogus saturation verdict). `corners.md` was regenerated:
+all 51 corners converge, 0 failures, and ff/+85 °C is a clean
+0.9005 V / 80.9 µA identical across all three compensation points. The
+verdicts above are unchanged — the aggressive point was always correct,
+the table just could not be quoted as evidence until the run was
+uniquely identified. See `design-notes.md` §9.
 
 ## Call 4 — Scope: **line-level only. Class-AB is ruled out by the platform, not by the design.**
 
@@ -159,10 +163,10 @@ reports a clean 0.900 V / 80.9 µA.** Compensation components cannot change
 a DC operating point — Cc and Rz carry no DC current — so the two rows must
 be identical, and they are not. One of them is a stale or failed artifact.
 
-*Fix*: give `bench_op` a `tag_extra` and pass the corner tag; regenerate
-`corners.md`. Until then the operating-point column of that table is not
-evidence, and — worse — a genuine saturation failure at some corner could
-be masked by a stale good file from the previous run.
+*Fix (DONE)*: `bench_op` and `bench_psrr` now take `tag_extra`;
+`corners.py` passes the corner tag and treats a non-converged run as an
+explicit "RUN FAILED", never as a saturation result. `corners.md`
+regenerated clean — see `design-notes.md` §9.
 
 **H2 — `bench_psrr` has the same untagged pattern** (`psrr_{topo}_{load}`).
 It has not bitten yet because PSRR is only run at nominal, but it will the
@@ -194,6 +198,6 @@ Ranked by how much it could still change a decision:
 |---|---|
 | topology | **two-stage Miller** for the audio buffer; 5T OTA retained for high-Z blocks |
 | spec row 5 | **accept 56.8 dB**; rewrite the row as a THD target and measure THD |
-| compensation | **Cc 2 pF / Rz 20 kΩ**, after regenerating corners with H1 fixed |
+| compensation | **Cc 2 pF / Rz 20 kΩ** — corners regenerated with H1 fixed, verdict confirmed |
 | scope | **line-level only**; class-AB ruled out by the 4 mA pad limit; series coupling cap mandatory |
 | O1 (3.3 V) | **closed** — available via `VAPWR`, deliberately not taken |

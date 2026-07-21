@@ -48,8 +48,16 @@ xdut {vinp} {vinn} vout vb vdd vss {subckt_of(topo)} {params}
 
 
 # ---------------------------------------------------------------- op ----
-def bench_op(topo, load):
-    tag = f"op_{topo}_{load}"
+def bench_op(topo, load, tag_extra=""):
+    # tag_extra is required for corner sweeps (H1): without it, every
+    # corner's operating-point run writes op_<topo>_<load>.{sp,log},
+    # overwriting the previous corner's artifacts. Even though the
+    # returned numbers come from stdout (so the values are per-run
+    # correct), a run that fails to converge leaves NO recoverable .log
+    # to debug -- the next corner has already overwritten it -- and,
+    # worse, a failed parse is silently rendered as "all devices out of
+    # saturation" below. See the `converged` guard.
+    tag = f"op_{topo}_{load}{tag_extra}"
     prints = []
     for inst, _d, _g, _s, model in devices(topo):
         for p in OP_PARAMS:
@@ -70,6 +78,12 @@ print v(vout)
 """
     out = run_ngspice(net, tag)
     vals = parse_meas(out)
+    # A missing v(vout) means the op-point analysis did not produce
+    # readable results (non-convergence, or a corrupted run). Say so --
+    # do NOT let the sat_margin logic below turn NaN Vds into a confident
+    # "every device is in the linear region", which is how a failed run
+    # masqueraded as a circuit result in the first corners.md.
+    converged = "v(vout)" in vals
     devs = {}
     for inst, d, g, s, model in devices(topo):
         row = {}
@@ -83,7 +97,7 @@ print v(vout)
         devs[inst] = row
     return dict(isupply=vals.get("isupply", float("nan")),
                 vout=vals.get("v(vout)", float("nan")),
-                devices=devs)
+                converged=converged, devices=devs)
 
 
 # ---------------------------------------------------------------- ac ----
@@ -172,8 +186,10 @@ wrdata {tag}.txt v(vout)
 
 
 # -------------------------------------------------------------- psrr ----
-def bench_psrr(topo, load):
-    tag = f"psrr_{topo}_{load}"
+def bench_psrr(topo, load, tag_extra=""):
+    # tag_extra for corner sweeps (H2): same untagged-artifact hazard as
+    # bench_op, latent until PSRR is swept over corners.
+    tag = f"psrr_{topo}_{load}{tag_extra}"
     net = f"""* {topo} PSRR (unity gain), load={load}
 {header()}
 {topo_include(topo)}
