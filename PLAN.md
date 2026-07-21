@@ -39,11 +39,14 @@ Console roles (why each block exists):
       spec, and the NMOS-pair flicker caveat is REFUTED (`design-notes.md`
       §6). Noise does not discriminate the topologies.
 - [ ] THD at 1 V pp / 1 kHz, CMRR, input common-mode range sweep
-- [ ] **Corners: ss/ff/sf/fs × −40/25/85 °C, and Monte Carlo offset** —
-      now the LARGEST remaining unknown, and it decides the open
-      compensation call (does the high-Rz lead-compensation point survive
-      corners, or only the conservative Rz ≈ 1/gm2 ones?). Mismatch is the
-      thing a digital flow never makes you think about.
+- [x] **Corners: ss/ff/sf/fs × −40/25/85 °C ± 10 % supply, and Monte
+      Carlo offset** (`tb/corners.py` -> `docs/corners.md`). Settled the
+      compensation call: the Rz = 20 k lead point is the MOST corner-
+      stable (PM 67.4-68.5° across the box), the textbook Rz ≈ 1/gm2
+      point fails 60° everywhere — the kickoff's caution had the
+      mechanism backwards (`design-notes.md` §7). Offset σ = 4.24 mV,
+      3σ ≈ ±12.7 mV: negligible for this buffer, first-order for the
+      comparator/SAR (§8).
 - [ ] Bias generator (constant-gm / beta-multiplier) with a start-up
       circuit, replacing the ideal external current source (`spec.md` O2)
 - [ ] Resolve O1: TT analog-slot supply domain, pad and ESD path

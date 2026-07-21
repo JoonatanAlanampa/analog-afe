@@ -18,7 +18,7 @@
 import math
 import re
 
-from common import (VDD, VCM, LOADS, OUT, header, topo_include, ib_of,
+from common import (LOADS, OUT, header, topo_include, ib_of, vdd, vcm,
                     subckt_of, load_net, run_ngspice, parse_meas,
                     read_wrdata)
 
@@ -38,7 +38,7 @@ def devices(topo):
 def _preamble(topo, load, vinn="vinn", vinp="vinp", params=""):
     return f"""{header()}
 {topo_include(topo)}
-vdd vdd 0 dc {VDD}
+vdd vdd 0 dc {vdd()}
 vss vss 0 0
 * bias: source pushes IB INTO vb (diode-connected NMOS to vss)
 ib 0 vb dc {ib_of(topo)}
@@ -56,7 +56,7 @@ def bench_op(topo, load):
             prints.append(f"print @m.xdut.x{inst}.m{model}[{p}]")
     net = f"""* {topo} DC operating point, load={load}
 {_preamble(topo, load)}
-vcm vinp 0 dc {VCM}
+vcm vinp 0 dc {vcm()}
 * unity-gain feedback so the output finds its own bias point
 lfb vout vinn 1e9
 .control
@@ -91,7 +91,7 @@ def bench_ac(topo, load, params="", tag_extra=""):
     tag = f"ac_{topo}_{load}{tag_extra}"
     net = f"""* {topo} open-loop AC, load={load} {params}
 {_preamble(topo, load, params=params)}
-vcm vinp 0 dc {VCM}
+vcm vinp 0 dc {vcm()}
 * DC feedback, AC open
 lfb vout vinn 1e9
 vac vac 0 dc 0 ac 1
@@ -177,11 +177,11 @@ def bench_psrr(topo, load):
     net = f"""* {topo} PSRR (unity gain), load={load}
 {header()}
 {topo_include(topo)}
-vdd vdd 0 dc {VDD} ac 1
+vdd vdd 0 dc {vdd()} ac 1
 vss vss 0 0
 * bias: source pushes IB INTO vb (diode-connected NMOS to vss)
 ib 0 vb dc {ib_of(topo)}
-vcm vinp 0 dc {VCM}
+vcm vinp 0 dc {vcm()}
 xdut vinp vout vout vb vdd vss {subckt_of(topo)}
 {load_net(load)}
 .ac dec 20 1 1e9
@@ -226,13 +226,13 @@ def bench_tran(topo, load, params="", tag_extra=""):
     net = f"""* {topo} 100 mV step up and down, unity gain, load={load}
 {header()}
 {topo_include(topo)}
-vdd vdd 0 dc {VDD}
+vdd vdd 0 dc {vdd()}
 vss vss 0 0
 * bias: source pushes IB INTO vb (diode-connected NMOS to vss)
 ib 0 vb dc {ib_of(topo)}
 xdut vin vout vout vb vdd vss {subckt_of(topo)} {params}
 {load_net(load)}
-vin vin 0 dc {VCM} pulse({VCM} {VCM + 0.1} {t_up:.9g} 10n 10n {t_dn - t_up:.9g} {10 * tstop:.9g})
+vin vin 0 dc {vcm()} pulse({vcm()} {vcm() + 0.1} {t_up:.9g} 10n 10n {t_dn - t_up:.9g} {10 * tstop:.9g})
 .tran {tstep:.9g} {tstop:.9g}
 .control
 run

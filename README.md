@@ -116,11 +116,13 @@ python tb/run.py ac miller_ota   # one bench, one candidate
 python tb/sweep_comp.py          # Cc x Rz compensation sweep for miller_ota
 python tb/sweep_comp.py line --report   # re-render from cached data
 python tb/noise.py               # input-referred noise -> docs/noise.md
+python tb/corners.py             # PVT corners + Monte Carlo offset -> docs/corners.md
 ```
 
 Results: [`docs/results.md`](docs/results.md),
-[`docs/compensation.md`](docs/compensation.md) and
-[`docs/noise.md`](docs/noise.md). Spec targets are asserted
+[`docs/compensation.md`](docs/compensation.md),
+[`docs/noise.md`](docs/noise.md) and
+[`docs/corners.md`](docs/corners.md). Spec targets are asserted
 in `SPEC` in `tb/run.py` and print PASS/FAIL per row.
 
 ## For the reviewer

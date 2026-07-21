@@ -206,7 +206,76 @@ mismatch is a different question entirely** and still unmeasured — in a
 unity-gain buffer it lands straight on the output as a DC shift into the
 coupling cap.
 
-## 7. Bench construction choices worth not re-deriving
+## 7. The compensation caution was aimed at the wrong point
+
+The kickoff flagged the highest-UGF compensation point (Rz = 20 kΩ,
+16× the measured 1/gm2) as suspect: it is a lead compensator whose zero
+tracks gm2, and gm2 moves over PVT, so the nominal ranking "might not be
+the real one." The corner run ([`corners.md`](corners.md)) tested that,
+and it was wrong — in the reassuring direction.
+
+Three compensation points, `miller_ota`, across five process corners ×
+{−40, 25, 85} °C × ±10 % supply (33 corners each):
+
+| point | Rz vs 1/gm2 | nominal PM | **worst-corner PM** | verdict |
+|---|---|---|---|---|
+| Rz 20 k ("aggressive") | 16× | 68.3° | **67.4°** (fs/−40 °C) | ✅ every corner |
+| Rz 5 k ("moderate") | 4× | 71.7° | **68.6°** (ss/+85 °C) | ✅ every corner |
+| Rz 2 k ("conservative") | 1.6× | 51.7° | **50.7°** (ss/+85 °C) | ❌ fails 60° everywhere |
+
+What this actually shows:
+
+- **The 20 kΩ lead compensator is the most corner-STABLE of the three.**
+  Its phase margin moves less than 1.5° across the entire box
+  (67.4–68.5°). The feared gm2-tracking-zero fragility did not appear —
+  because Rz ≫ 1/gm2 makes the compensation a lead network whose
+  corner frequency is set by Rz·Cc (both passives, which track far
+  better than gm2), not by a delicate pole-zero cancellation. The
+  caution had the mechanism backwards.
+
+- **The point near the textbook Rz = 1/gm2 (2 kΩ) does not meet phase
+  margin at all** — 50.7–51.7° everywhere. On this process, at this
+  bias, pole-splitting compensation is simply not available: gm2 is too
+  low relative to the load pole to place the second pole beyond the UGF.
+  Buying it back needs more output-stage current, which is a design
+  change, not a component value.
+
+- **This corrects a real error in `review-brief.md`.** An earlier
+  version offered "8 pF / 2 k → 71.7°" as a conservative alternative;
+  71.7° is `8 pF / 5 k`, and 8 pF / 2 k is 51.7° — a misread of the
+  sweep table that recommended a point which fails the spec. The
+  correction is now in the brief, backed by this table.
+
+**Bottom line for the review:** the compensation choice is between the
+20 kΩ and 5 kΩ points, both corner-robust, and the tie-breaker is UGF
+(20 kΩ gives 7.7–12.5 MHz, 5 kΩ gives 2.5–3.5 MHz — the 20 kΩ point has
+far more loop gain left at 20 kHz, which is what suppresses audio
+distortion, spec row 6).
+
+## 8. Input offset from mismatch is small, and it costs headroom not audio
+
+Monte Carlo, `tt_mm` corner, 30 draws, unity-gain buffer
+([`corners.md`](corners.md)): input offset **σ = 4.24 mV, mean +0.90 mV,
+3σ ≈ ±12.7 mV**, worst single draw 8.2 mV.
+
+Why it is not a problem here, and where it would be:
+
+- In this **unity-gain audio buffer** the offset is a DC shift on the
+  output, and the output feeds the jack through the board's 47 µF
+  coupling capacitor. So ±12.7 mV of 3σ offset does not reach the
+  speaker — it costs 2.5 % of the 0.5 V peak output swing as headroom,
+  which is negligible against the other margins.
+- It would matter enormously in the **comparator and SAR ADC** this leg
+  builds next: 12.7 mV of offset is ~0.6 LSB at 8 bit over a 1.8 V range
+  and > 2 LSB at 10 bit. Those blocks will need offset cancellation
+  (auto-zero / chopping), and this number is the reason to budget for it
+  now rather than discover it in silicon.
+- The 30-draw σ is itself uncertain (σ on σ ≈ σ/√(2N) ≈ 13 %); it is a
+  sizing signal, not a signoff number. A real offset signoff wants a few
+  hundred draws and the layout's actual common-centroid matching, which
+  is a phase-2 (post-layout) task.
+
+## 9. Bench construction choices worth not re-deriving
 
 - **Open-loop AC with the DC loop closed.** The feedback path is a 1 GH
   inductor (short at DC, open at AC) and the stimulus arrives through a

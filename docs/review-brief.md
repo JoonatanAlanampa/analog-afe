@@ -125,13 +125,15 @@ a single-stage 5T OTA, or a two-stage Miller op-amp? And at what bias?
   the call rests on drive; (c) bias current is not the lever — 5× the
   current buys 1.6 µV, because flicker scales with device *area*.
 - **Distortion (THD), CMRR, input common-mode range.** Unmeasured.
-- **PVT corners and Monte Carlo mismatch.** Everything above is one
-  nominal `tt` 25 °C run. Offset in particular is unmeasured, and a
-  unity-gain audio buffer's offset lands straight on the output as a DC
-  shift into the coupling cap. This is now the **largest** remaining
-  unknown, and it also decides open call 3 — whether the high-Rz
-  compensation point survives corners, or whether the conservative
-  Rz ≈ 1/gm2 points are the only defensible ones.
+- ~~**PVT corners and Monte Carlo mismatch.**~~ **MEASURED** — see
+  `corners.md` and `design-notes.md` §7–8. The compensation choice is
+  now settled (call 3 below). Input offset from mismatch is
+  σ = 4.24 mV / 3σ ≈ ±12.7 mV — negligible for THIS unity-gain buffer
+  (it costs 2.5 % of output swing as headroom, behind the coupling cap),
+  but a first-order problem for the comparator/SAR ADC this leg builds
+  next (~0.6 LSB at 8 bit), which is the reason to budget offset
+  cancellation there now. Still open: THD, CMRR, ICMR, and a real
+  (few-hundred-draw, post-layout) offset signoff.
 - **O1 in [`spec.md`](spec.md): the TT analog slot's supply domain.**
   If 3.3 V is available, the headroom constraint that shaped both
   candidates relaxes and a PMOS input pair (quieter) returns to the

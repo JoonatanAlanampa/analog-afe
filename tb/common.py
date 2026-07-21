@@ -79,10 +79,29 @@ LOADS = {
 }
 
 
+# Simulation environment. Mutated by tb/corners.py to sweep PVT; every
+# bench reads it rather than hardcoding tt/25C/1.8V, so the corner runs
+# use the SAME measurement code as the nominal ones -- a corner sweep
+# that re-implements its own AC extraction is comparing two benches, not
+# two corners.
+ENV = {"corner": "tt", "temp": TEMP, "vdd": VDD, "seed": None}
+
+
+def vdd():
+    return ENV["vdd"]
+
+
+def vcm():
+    """Input common mode tracks the supply: audio sits at mid-rail."""
+    return ENV["vdd"] / 2.0
+
+
 def header():
-    return (f'.lib "{MODELS}" tt\n'
-            f'.temp {TEMP}\n'
-            f'.option TEMP={TEMP}\n')
+    seed = "" if ENV["seed"] is None else f'.option seed={ENV["seed"]}\n'
+    return (f'.lib "{MODELS}" {ENV["corner"]}\n'
+            f'.temp {ENV["temp"]}\n'
+            f'.option TEMP={ENV["temp"]}\n'
+            f'{seed}')
 
 
 def subckt_of(variant):
