@@ -1,0 +1,4 @@
+# simulation artefacts — regenerate with `python tb/run.py`
+out/
+__pycache__/
+*.pyc

@@ -1,0 +1,82 @@
+# PLAN — analog front-end (`analog-afe`)
+
+The classic-EE leg of the full-stack goal: own analog blocks designed
+from device physics up, validated on a TinyTapeout analog slot, then
+integrated into the console so the finale is mixed-signal.
+
+Chain: **op-amp → comparator → SAR ADC**, plus the ring-oscillator clock
+that comes over from the vertical-slice test structures.
+
+Console roles (why each block exists):
+- op-amp + DAC → audio output, replacing the sigma-delta bitstream and
+  the cartridge Pmod's external RC/amp
+- comparator + SAR ADC → paddle-controller input, period-authentic
+  analog pots
+- own ring-osc → on-chip clock
+
+## Phase 0 — kickoff (DONE)
+
+- [x] Repo scaffold, `PLAN.md`, spec traced to the console (`docs/spec.md`)
+- [x] ngspice + sky130 harness cribbed verbatim from
+      `stdcells/flow/common.py` (incl. the Windows 8.3 short-path fix)
+- [x] Two candidate topologies as hand-written netlists:
+      `spice/ota_5t.sp`, `spice/miller_ota.sp` — plus a current-matched
+      third variant so the comparison is about topology, not bias
+- [x] Four benches: DC operating point (per-device saturation margin),
+      open-loop gain / UGF / phase margin / gain margin, PSRR, step
+      response — over three console-derived load corners
+- [x] Results table (`docs/results.md`) + findings (`docs/design-notes.md`)
+- [ ] **Topology review — Fable, per `model-routing-policy`.** Present
+      both; decide nothing here.
+
+## Phase 1 — close the op-amp (after the review)
+
+- [ ] Phase-2 benches the kickoff deliberately left out: input-referred
+      noise (the NMOS-pair flicker question from `design-notes.md` §1),
+      THD at 1 V pp / 1 kHz, CMRR, input common-mode range sweep
+- [ ] Corners: ss/ff/sf/fs × −40/25/85 °C, and Monte Carlo offset —
+      mismatch is the thing a digital flow never makes you think about
+- [ ] Bias generator (constant-gm / beta-multiplier) with a start-up
+      circuit, replacing the ideal external current source (`spec.md` O2)
+- [ ] Resolve O1: TT analog-slot supply domain, pad and ESD path
+
+## Phase 2 — layout
+
+- [ ] Reuse the `stdcells` toolchain (gdstk + official KLayout decks +
+      magic views) for analog layout: common-centroid input pair,
+      dummy devices, guard rings, matched routing
+- [ ] DRC + LVS + post-extraction re-simulation. Post-layout is where
+      analog designs go to die; budget for it accordingly.
+
+## Phase 3 — comparator
+
+- [ ] Pre-amp + latch, offset and kickback benches, metastability window
+
+## Phase 4 — SAR ADC
+
+- [ ] Charge-redistribution DAC (capacitor matching is the whole game),
+      SAR logic in our own standard cells, ~8–10 bit at audio rates
+- [ ] Static (INL/DNL) and dynamic (SNDR/ENOB) benches
+
+## Phase 5 — TT analog slot
+
+- [ ] Standalone validation chip, the way the cartridge Pmod rehearsed
+      the memory system before any silicon depended on it
+- [ ] Bring-up script, in the shape proven by `tt-cordic/bringup/`
+
+## Phase 6 — console integration
+
+- [ ] Audio path: chiptune voices → DAC → buffer → jack
+- [ ] Paddle path: pot → comparator/SAR → CPU register
+- [ ] Mixed-signal budget: +2–4 analog pins (~€100–200 over the digital
+      tiles)
+
+## Rules for this repo
+
+- `stdcells`, `devphys`, `pmod-cartridge` and `console` are **read-only
+  reference** here. Copies with commit provenance, never edits.
+- Every quoted number is simulated or measured, with the netlist that
+  produced it in the repo. Guesses are labelled as guesses (see the
+  "Where it comes from" column in `docs/spec.md`).
+- Dead ends get written down in `docs/design-notes.md`, with the data
+  that killed them.
