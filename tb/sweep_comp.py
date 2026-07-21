@@ -10,6 +10,7 @@ candidate actually lands so the topology review argues about topology.
 
 Writes docs/compensation.md.
 """
+import json
 import sys
 from pathlib import Path
 
@@ -25,8 +26,29 @@ RZ = [100.0, 2e3, 5e3, 10e3, 20e3]
 PM_TARGET, UGF_TARGET = 60.0, 2e6
 
 
+def gm2():
+    """gm of the second-stage device, from the last op-point run.
+
+    The textbook nulling resistor is Rz = 1/gm2; the sweep is only
+    interpretable against that number.
+    """
+    try:
+        j = json.loads((ROOT / "out" / "results.json").read_text())
+        return j["miller_ota"]["line"]["op"]["devices"]["m5"]["gm"]
+    except Exception:
+        return None
+
+
 def main():
-    load = sys.argv[1] if len(sys.argv) > 1 else "line"
+    args = [a for a in sys.argv[1:] if not a.startswith("-")]
+    load = args[0] if args else "line"
+    cache = ROOT / "out" / "sweep.json"
+
+    if "--report" in sys.argv:          # re-render from cached data
+        rows = json.loads(cache.read_text())
+        report(load, rows)
+        return
+
     rows = []
     for cc in CC:
         for rz in RZ:
@@ -36,6 +58,7 @@ def main():
             tr = bench_tran("miller_ota", load, params=params, tag_extra=tag)
             row = dict(cc=cc, rz=rz, **ac, **tr)
             rows.append(row)
+            cache.write_text(json.dumps(rows, indent=1))
             print(f"Cc={cc*1e12:5.1f}p Rz={rz/1e3:5.1f}k  "
                   f"A={ac.get('a_lf_db', float('nan')):6.1f}dB  "
                   f"UGF={(ac.get('ugf_hz') or 0)/1e6:7.2f}MHz  "
@@ -44,6 +67,10 @@ def main():
                   f"SR={tr.get('slew_v_per_us', float('nan')):5.2f}V/us",
                   flush=True)
 
+    report(load, rows)
+
+
+def report(load, rows):
     ok = [r for r in rows
           if (r.get("pm_deg") or 0) >= PM_TARGET
           and (r.get("ugf_hz") or 0) >= UGF_TARGET]
@@ -55,6 +82,9 @@ def main():
          "(`docs/spec.md` rows 7-8).\n",
          "| Cc | Rz | gain @1 Hz | UGF | phase margin | overshoot | slew |",
          "|---|---|---|---|---|---|---|"]
+    def rzs(rz):
+        return f"{rz:.0f} ohm" if rz < 1e3 else f"{rz/1e3:.0f} k"
+
     def g(r, k, scale=1.0, unit="", fmt=".2f"):
         v = r.get(k)
         if v is None or v != v:
@@ -63,7 +93,7 @@ def main():
 
     for r in rows:
         star = " **<--**" if ok and r is ok[0] else ""
-        L.append(f"| {r['cc']*1e12:.0f} pF | {r['rz']/1e3:.0f} k "
+        L.append(f"| {r['cc']*1e12:.0f} pF | {rzs(r['rz'])} "
                  f"| {g(r, 'a_lf_db', 1, 'dB', '.1f')} "
                  f"| {g(r, 'ugf_hz', 1e-6, 'MHz')} "
                  f"| {g(r, 'pm_deg', 1, 'deg', '.1f')} "
@@ -73,9 +103,31 @@ def main():
     if ok:
         b = ok[0]
         L.append(f"**Best point meeting both targets:** Cc = "
-                 f"{b['cc']*1e12:.0f} pF, Rz = {b['rz']/1e3:.0f} k -> "
+                 f"{b['cc']*1e12:.0f} pF, Rz = {rzs(b['rz'])} -> "
                  f"UGF {b['ugf_hz']/1e6:.2f} MHz, PM {b['pm_deg']:.1f} deg, "
                  f"overshoot {b.get('overshoot_pct', float('nan')):.2f} %.")
+        g2 = gm2()
+        if g2:
+            L.append(f"\n**Read that with suspicion.** The textbook nulling "
+                     f"resistor is Rz = 1/gm2 = {1/g2:.0f} ohm "
+                     f"(gm2 = {g2*1e6:.0f} uS, measured on `xm5` in "
+                     f"`docs/results.md`). Sorting by UGF picks "
+                     f"Rz = {rzs(b['rz'])}, which is "
+                     f"{b['rz']*g2:.0f}x that -- not pole-zero "
+                     "cancellation but a lead compensator, and the whole "
+                     f"Rz = {rzs(b['rz'])} column lands on nearly the "
+                     "same UGF regardless of Cc, which is the signature of "
+                     "the compensation branch feeding *forward* around the "
+                     "second stage rather than splitting its poles.\n\n"
+                     "That regime works in this one nominal simulation and "
+                     "is exactly the kind of thing that stops working over "
+                     "PVT and mismatch, because the zero it relies on "
+                     "tracks gm2. **A conservative reading of this table "
+                     "prefers a point near Rz ~ 1/gm2 with enough Cc** "
+                     "(e.g. 8 pF / 2 k, or 4 pF / 5 k) and treats the "
+                     "high-Rz corner as unproven until the phase-1 corner "
+                     "and Monte Carlo runs exist. Flagged for the review "
+                     "rather than decided here.")
     else:
         L.append("**No point meets both targets.** The two-stage candidate "
                  "cannot simultaneously hit the UGF and phase-margin rows "

@@ -24,8 +24,10 @@ Console roles (why each block exists):
       third variant so the comparison is about topology, not bias
 - [x] Four benches: DC operating point (per-device saturation margin),
       open-loop gain / UGF / phase margin / gain margin, PSRR, step
-      response — over three console-derived load corners
-- [x] Results table (`docs/results.md`) + findings (`docs/design-notes.md`)
+      response — over four console-derived load corners
+- [x] Results table (`docs/results.md`), compensation sweep
+      (`docs/compensation.md`), findings (`docs/design-notes.md`)
+- [x] Reviewer's one-pager (`docs/review-brief.md`)
 - [ ] **Topology review — Fable, per `model-routing-policy`.** Present
       both; decide nothing here.
 

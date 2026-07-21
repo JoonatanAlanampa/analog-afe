@@ -79,7 +79,7 @@ version of it, it measures a different circuit.
 
 ## Benches
 
-`tb/benches.py`, run over 3 candidates × 3 load corners:
+`tb/benches.py`, run over 3 candidates × 4 load corners:
 
 | bench | measures |
 |---|---|
@@ -88,9 +88,12 @@ version of it, it measures a different circuit.
 | `psrr` | supply rejection at DC / 1 kHz / 20 kHz (this die also holds a CPU and video timing) |
 | `tran` | 100 mV step, unity gain: slew rate, 0.1 % settling, overshoot, gain error |
 
-Load corners are the console's, not textbook round numbers: a line input
-behind the board's 47 µF coupling cap (primary), the cartridge Pmod's RC
-network exactly as built and DC-coupled, and a 32 Ω headphone (stretch).
+Load corners are the console's, not textbook round numbers: unloaded
+(the amplifier's intrinsic gain), a line input behind the board's 47 µF
+coupling cap (primary), the cartridge Pmod's RC network exactly as built
+and DC-coupled, and a 32 Ω headphone (stretch). The unloaded corner is
+what separates intrinsic gain from load-driven collapse — without it the
+single-stage OTA just looks broken instead of drive-limited.
 
 The open-loop AC bench closes the loop at DC through a 1 GH inductor and
 injects through a 1 GF capacitor, so the amplifier is measured at the
@@ -109,8 +112,28 @@ python tb/run.py ac              # one bench
 python tb/run.py ac miller_ota   # one bench, one candidate
 ```
 
-Results: [`docs/results.md`](docs/results.md). Spec targets are asserted
+```sh
+python tb/sweep_comp.py          # Cc x Rz compensation sweep for miller_ota
+python tb/sweep_comp.py line --report   # re-render from cached data
+```
+
+Results: [`docs/results.md`](docs/results.md) and
+[`docs/compensation.md`](docs/compensation.md). Spec targets are asserted
 in `SPEC` in `tb/run.py` and print PASS/FAIL per row.
+
+## For the reviewer
+
+[`docs/review-brief.md`](docs/review-brief.md) is the one-page version:
+the comparison table, what the data says, what is still unmeasured, and
+the two calls (a gain-target restatement and the compensation point)
+that are deliberately left open.
+
+The short version: the single-stage OTA is **drive**-limited, not
+gain-limited — its 40 dB intrinsic gain collapses to 6.8 dB into a
+10 kΩ AC load, and current-matching it at 100 µA only buys 11 dB, which
+is what the `ota_5t_x5` variant exists to prove. The two-stage amp holds
+56.8 dB into the same load at comparable current, with 0.115 % unity-gain
+step error and 31 dB more PSRR. Nobody drives 32 Ω.
 
 ## Next
 

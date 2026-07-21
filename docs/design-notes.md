@@ -82,7 +82,37 @@ That is a conclusion about the *board*, obtained from a transistor-level
 simulation of the chip — which is the sort of thing this whole leg exists
 to be able to do.
 
-## 4. Bench construction choices worth not re-deriving
+## 4. The two-stage candidate had to be tuned before it could be judged
+
+The first `miller_ota` run (Cc = 2 pF, Rz = 2 k, arrived at from
+Rz ≈ 1/gm2 with a guessed gm2) came back with **26° of phase margin and
+32 % overshoot** into the primary load. Reporting that against a
+single-stage amp would have been comparing a topology against a strawman
+— an untuned two-stage amplifier is a tuning result, not a topology
+result.
+
+`tb/sweep_comp.py` sweeps Cc × Rz (compensation is a `.subckt`
+parameter, so no netlist is edited) and the answer is in
+[`compensation.md`](compensation.md): the candidate comfortably clears
+both the UGF and phase-margin rows of the spec — several points do.
+
+**Two traps in that table, both recorded there:**
+
+- `Rz = 0` returned −137 dB of gain. ngspice clamps a zero-value
+  resistor to 1e−12 Ω, and the resulting 1e12 S matrix entry destroys
+  the conditioning. A numerical failure wearing the costume of a circuit
+  result; the sweep now starts at 100 Ω.
+- Sorting by UGF picks Rz = 20 k, which is **16 × the measured
+  1/gm2 = 1248 Ω**. That is not pole-zero cancellation, it is a lead
+  compensator — and the whole Rz = 20 k column lands on ~9.3 MHz
+  regardless of Cc, the signature of the compensation branch feeding
+  *forward* around the second stage. It works in this one nominal
+  simulation and depends on a zero that tracks gm2, so it is precisely
+  what PVT and mismatch break. The conservative points near Rz ≈ 1/gm2
+  (8 pF / 2 k, 4 pF / 5 k) are flagged for the review instead of
+  quietly chosen.
+
+## 5. Bench construction choices worth not re-deriving
 
 - **Open-loop AC with the DC loop closed.** The feedback path is a 1 GH
   inductor (short at DC, open at AC) and the stimulus arrives through a
@@ -92,6 +122,13 @@ to be able to do.
   `meas ac`. The measured response is inverting, so its low-frequency
   phase is 180°; the phase is unwrapped and referenced there, and PM is
   simply the phase remaining at the 0 dB crossing.
+- **The UGF is the LAST 0 dB crossing, not the first.** On the
+  AC-coupled corners the 47 µF cap high-passes the response, so gain
+  *rises* out of the low-frequency end and crosses 0 dB on the way up.
+  Taking the first crossing reported the 32 Ω headphone corner with a
+  "unity-gain frequency" of 2.85 Hz — the coupling pole, mislabelled.
+  The gain-margin phase search starts at the UGF index for the same
+  reason.
 - **`print @m.xdut.xNAME.mMODEL[param]`** reaches operating-point
   parameters through the sky130 model subckts (`gm`, `gds`, `vth`,
   `vdsat`, `vgs`, `vds`, `id`). Verified before it was relied on. This
