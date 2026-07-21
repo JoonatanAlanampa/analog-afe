@@ -4,7 +4,18 @@ Everything needed to decide, in one page. Numbers from
 [`results.md`](results.md) and [`compensation.md`](compensation.md); no
 decision is made here.
 
-## Review status: INCOMPLETE
+## Review status: COMPLETE 2026-07-21 — see [`topology-review.md`](topology-review.md)
+
+All four calls are made and O1 is closed: **two-stage Miller**, accept
+56.8 dB (rewrite row 5 as a THD target), **Cc 2 pF / Rz 20 kΩ**,
+**line-level only** — class-AB is ruled out by TT's 4 mA pad limit, not by
+the design, and a series coupling cap is mandatory. 3.3 V `VAPWR` exists
+but is deliberately not taken. The harness audit found a second bug of the
+same class as the first (H1: `bench_op` is untagged, so all 34 corner
+operating points collide — the ff/+85 °C anomaly below is that artifact).
+The history below is kept for context.
+
+## Review status when written: INCOMPLETE
 
 A first adversarial review pass ran and **terminated early on a model
 usage limit**, before delivering any of the four calls below. It got far
@@ -61,13 +72,29 @@ a single-stage 5T OTA, or a two-stage Miller op-amp? And at what bias?
    should be restated as a gain-error target, or 56.8 dB should be
    accepted with that reasoning recorded. **Reviewer's call.**
 
-3. **The compensation point is not settled.** Several (Cc, Rz) pairs
-   clear both PM and UGF. The highest-UGF one sits at Rz = 16 × 1/gm2,
-   which is a lead compensator relying on a gm2-tracking zero — exactly
-   what PVT and mismatch break. The conservative points near
-   Rz ≈ 1/gm2 = 1248 Ω (8 pF / 2 k → 71.7°, 2.9 MHz; 4 pF / 5 k →
-   53.1°, 4.3 MHz) trade UGF for robustness. **Reviewer's call**, and it
-   should probably wait for phase-1 corner runs.
+3. **The compensation point is settled by the corner run, and it went
+   the opposite way to the caution above.** See
+   [`corners.md`](corners.md). The Rz = 20 kΩ "aggressive" point — the
+   lead compensator I flagged as PVT-fragile because its zero tracks
+   gm2 — holds **PM 67.5–68.5° and UGF 7.7–12.5 MHz across all five
+   process corners, −40…+85 °C, and ±10 % supply**. Phase margin varies
+   by under 1.5° over the whole box. The caution was aimed at the wrong
+   candidate.
+
+   **Correction to an earlier version of this brief:** it offered
+   "8 pF / 2 k → 71.7°" as the conservative alternative. That was a
+   misread of the sweep table — 71.7° belongs to **8 pF / 5 k**;
+   8 pF / 2 k is 51.7° and fails the 60° target nominally, which the
+   corner run confirms (50.7–54.1° everywhere). The other alternative
+   quoted, 4 pF / 5 k at 53.1°, also fails. Both "conservative" options
+   as stated were wrong.
+
+   What actually holds up: `Rz = 1/gm2` measures 1248 Ω, and points near
+   it do NOT meet phase margin at this bias — the pole-splitting textbook
+   point is not available here without more output-stage current. The
+   real choice is between the corner-stable 20 kΩ lead compensator and
+   8 pF / 5 kΩ (71.7° nominal, 4× 1/gm2), whose corner behaviour is in
+   `corners.md` alongside the other two.
 
 4. **Nobody drives 32 Ω, and nobody should be expected to.** Every
    candidate's gain error at the headphone corner is −67 % or worse, and
