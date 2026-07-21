@@ -132,9 +132,10 @@ def write_report(res):
                 f"{check('psrr_1k_db', ps.get('psrr_1k_db'))} |")
 
     L.append("\n## Large-signal / DC\n")
-    L.append("| candidate | load | I_supply | V_out(quiescent) | slew | "
-             "settle 0.1 % | overshoot | gain error |")
-    L.append("|---|---|---|---|---|---|---|---|")
+    L.append("| candidate | load | I_supply | V_out(quiescent) | "
+             "slew (worse edge) | rise | fall | settle 0.1 % | overshoot "
+             "| gain error |")
+    L.append("|---|---|---|---|---|---|---|---|---|---|")
     for t in res:
         for ld in res[t]:
             op = res[t][ld].get("op") or {}
@@ -145,6 +146,8 @@ def write_report(res):
                 f"| {fmt(op.get('vout'),'V')}{note} "
                 f"| {fmt(tr.get('slew_v_per_us'),'V/us')}"
                 f"{check('slew_v_per_us', tr.get('slew_v_per_us'))} "
+                f"| {fmt(tr.get('slew_rise_v_per_us'),'V/us')} "
+                f"| {fmt(tr.get('slew_fall_v_per_us'),'V/us')} "
                 f"| {fmt(tr.get('tsettle_us'),'us')} "
                 f"| {fmt(tr.get('overshoot_pct'),'%')} "
                 f"| {fmt(tr.get('gain_err_pct'),'%')} |")

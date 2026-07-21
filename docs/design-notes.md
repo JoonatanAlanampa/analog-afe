@@ -112,7 +112,47 @@ both the UGF and phase-margin rows of the spec — several points do.
   (8 pF / 2 k, 4 pF / 5 k) are flagged for the review instead of
   quietly chosen.
 
-## 5. Bench construction choices worth not re-deriving
+## 5. The step bench only measured the easy direction
+
+Found by the review pass, and it changed a spec verdict.
+
+The transient bench stepped 0.9 → 1.0 V and stopped. But these are
+class-A output stages: the two directions are driven by *different
+devices*. `miller_ota` sources through `xm5`, a PMOS common-source that
+can pull hard, and sinks through `xm6`, a current sink pinned at
+61.5 µA. Slewing down into a load is therefore the limited direction,
+and a rising-only step never touched it.
+
+Measured after stepping both ways (`slew_v_per_us` is now the worse
+edge, with both reported):
+
+| candidate | load | rise | fall | asymmetry |
+|---|---|---|---|---|
+| `ota_5t` | line | 0.132 V/µs | 0.150 V/µs | 1.1× |
+| `ota_5t_x5` | line | 0.589 V/µs | 0.601 V/µs | 1.0× |
+| `miller_ota` | line | 2.85 V/µs | **1.11 V/µs** | **2.6×** |
+| `miller_ota` | phone | 0.457 V/µs | **0.0978 V/µs** | **4.7×** |
+
+Two consequences:
+
+- The two-stage candidate's slew advantage at the primary load was
+  **overstated by 2.6×**. It still passes the spec row comfortably.
+- At the headphone corner it now **fails** row 9 (0.098 vs 0.1 V/µs).
+  It was previously recorded as passing at 0.471 V/µs — a PASS that
+  existed only because the bench never asked the amplifier to pull
+  down. This strengthens the class-AB argument in
+  [`review-brief.md`](review-brief.md) with evidence rather than
+  intuition.
+- The single-stage OTAs are symmetric, as expected: their output node is
+  driven by a differential pair against a mirror, and both directions
+  are bounded by the same tail current.
+
+**The general form:** when a circuit's two directions are driven by
+different devices, a one-directional stimulus measures the better one.
+The same trap is waiting in the comparator (rising vs falling
+propagation delay) and the SAR ADC (charge vs discharge settling).
+
+## 6. Bench construction choices worth not re-deriving
 
 - **Open-loop AC with the DC loop closed.** The feedback path is a 1 GH
   inductor (short at DC, open at AC) and the stimulus arrives through a

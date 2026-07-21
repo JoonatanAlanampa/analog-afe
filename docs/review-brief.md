@@ -4,6 +4,27 @@ Everything needed to decide, in one page. Numbers from
 [`results.md`](results.md) and [`compensation.md`](compensation.md); no
 decision is made here.
 
+## Review status: INCOMPLETE
+
+A first adversarial review pass ran and **terminated early on a model
+usage limit**, before delivering any of the four calls below. It got far
+enough to find one real bench bug, which has been fixed and is recorded
+as §5 of [`design-notes.md`](design-notes.md):
+
+> The step bench only measured the rising edge. These are class-A output
+> stages, so the two directions are driven by different devices —
+> `miller_ota` sinks through a 61.5 µA current source, making the
+> falling edge the limited one. Its slew advantage at the primary load
+> was overstated **2.6×** (2.85 → 1.11 V/µs), and at the headphone
+> corner it **flips from PASS to FAIL** on spec row 9 (0.098 vs
+> 0.1 V/µs) — a PASS that existed only because the bench never asked the
+> amplifier to pull down.
+
+Everything below has been updated for that. **The four calls remain
+unmade, and the harness audit is unfinished** — one bug was found by a
+review that did not get to finish looking, which is not evidence that it
+was the last one.
+
 ## The question
 
 Which topology should become the console's audio output buffer:
@@ -18,7 +39,7 @@ a single-stage 5T OTA, or a two-stage Miller op-amp? And at what bias?
 | UGF | 589 kHz | 2.65 MHz | **5.9–9.6 MHz** | ≥ 2 MHz |
 | phase margin | 119° | 97° | 26° untuned, **68–92° tuned** | ≥ 60° |
 | PSRR @ 1 kHz | 42.4 dB | 38.4 dB | **73.5 dB** | ≥ 40 dB |
-| slew | 0.13 V/µs | 0.59 V/µs | **2.9 V/µs** | ≥ 0.1 V/µs |
+| slew (worse edge) | 0.13 V/µs | 0.59 V/µs | **1.11 V/µs** | ≥ 0.1 V/µs |
 | unity-gain step error | −33.2 % | −11.7 % | **−0.115 %** | — |
 | supply current | 19 µA | 91 µA | 81 µA | ≤ 200 µA |
 
@@ -49,7 +70,9 @@ a single-stage 5T OTA, or a two-stage Miller op-amp? And at what bias?
    should probably wait for phase-1 corner runs.
 
 4. **Nobody drives 32 Ω, and nobody should be expected to.** Every
-   candidate's gain error at the headphone corner is −67 % or worse. The
+   candidate's gain error at the headphone corner is −67 % or worse, and
+   with both edges measured the two-stage amp also misses the slew row
+   there (0.098 V/µs, limited by its 61.5 µA output sink). The
    real question this raises is a scoping one: is the chip's output
    line-level (leaving power to the Pmod's amplifier), or does it need
    a class-AB output stage — a different design, not a tuning change?

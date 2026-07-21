@@ -207,12 +207,23 @@ wrdata {tag}.txt v(vout)
 
 # -------------------------------------------------------------- tran ----
 def bench_tran(topo, load, params="", tag_extra=""):
+    """100 mV step UP and back DOWN, unity gain.
+
+    BOTH edges, and that is the whole point. These are class-A output
+    stages: the two directions are driven by different devices and are
+    NOT symmetric. miller_ota sources through xm5 (a PMOS common-source
+    that can pull hard) but sinks through xm6, a current sink pinned at
+    61.5 uA -- so the FALLING edge is the limited one. A rising-only
+    step measures the easy direction and flatters every candidate.
+    `slew_v_per_us` is therefore the WORSE of the two edges; the
+    individual rates are reported alongside it.
+    """
     tag = f"tran_{topo}_{load}{tag_extra}"
     # the 147 nF Pmod corner is three orders of magnitude slower than the
     # others -- give it its own time base rather than under-resolving it
-    tstop, tstep = (3e-3, 100e-9) if load == "pmodrc" else (30e-6, 2e-9)
-    tedge = tstop / 2
-    net = f"""* {topo} 100 mV step, unity gain, load={load}
+    tstop, tstep = (3e-3, 100e-9) if load == "pmodrc" else (60e-6, 2e-9)
+    t_up, t_dn = 0.25 * tstop, 0.625 * tstop
+    net = f"""* {topo} 100 mV step up and down, unity gain, load={load}
 {header()}
 {topo_include(topo)}
 vdd vdd 0 dc {VDD}
@@ -221,7 +232,7 @@ vss vss 0 0
 ib 0 vb dc {ib_of(topo)}
 xdut vin vout vout vb vdd vss {subckt_of(topo)} {params}
 {load_net(load)}
-vin vin 0 dc {VCM} pulse({VCM} {VCM + 0.1} {tedge:.9g} 10n 10n {tstop} {2 * tstop})
+vin vin 0 dc {VCM} pulse({VCM} {VCM + 0.1} {t_up:.9g} 10n 10n {t_dn - t_up:.9g} {10 * tstop:.9g})
 .tran {tstep:.9g} {tstop:.9g}
 .control
 run
@@ -235,44 +246,66 @@ wrdata {tag}.txt v(vout) v(vin)
         return dict(error="no transient data")
     t = [r[0] for r in rows]
     v = [r[1] for r in rows]
-    # pre-step and final levels
-    pre = [v[i] for i in range(len(t)) if t[i] < tedge * 0.95]
-    post = [v[i] for i in range(len(t)) if t[i] > tstop * 0.95]
-    if not pre or not post:
+
+    def level(t_lo, t_hi):
+        seg = [v[i] for i in range(len(t)) if t_lo <= t[i] <= t_hi]
+        return sum(seg) / len(seg) if seg else None
+
+    # settled levels in the last 5 % of each plateau
+    v0 = level(t_up - 0.05 * t_up, t_up)
+    v1 = level(t_dn - 0.05 * (t_dn - t_up), t_dn)
+    v2 = level(tstop - 0.05 * (tstop - t_dn), tstop)
+    if v0 is None or v1 is None or v2 is None:
         return dict(error="step window empty")
-    v0, v1 = pre[-1], sum(post) / len(post)
+
     swing = v1 - v0
-    res = dict(v0=v0, v1=v1, step_out_mv=swing * 1e3,
+    res = dict(v0=v0, v1=v1, v2=v2, step_out_mv=swing * 1e3,
                gain_err_pct=(swing / 0.1 - 1) * 100)
-    # slew rate over the 10-90 % band of the actual swing
-    if abs(swing) > 1e-4:
-        lo, hi = v0 + 0.1 * swing, v0 + 0.9 * swing
+
+    def edge(t_edge, t_end, a, b):
+        """10-90 % rate and 0.1 % settling for one edge, a -> b."""
+        d = b - a
+        out = {}
+        if abs(d) < 1e-4:
+            return out
+        lo, hi = a + 0.1 * d, a + 0.9 * d
+        sgn = 1 if d > 0 else -1
         tl = th = None
         for i in range(len(t)):
-            if t[i] < tedge:
+            if t[i] < t_edge or t[i] > t_end:
                 continue
-            if tl is None and (v[i] - lo) * (1 if swing > 0 else -1) >= 0:
+            if tl is None and (v[i] - lo) * sgn >= 0:
                 tl = t[i]
-            if th is None and (v[i] - hi) * (1 if swing > 0 else -1) >= 0:
+            if th is None and (v[i] - hi) * sgn >= 0:
                 th = t[i]
                 break
         if tl is not None and th is not None and th > tl:
-            res["slew_v_per_us"] = (hi - lo) / (th - tl) / 1e6
-        # 0.1 % settling (of the step) after the edge
-        tol = abs(swing) * 1e-3
-        tset = None
+            out["rate"] = abs(hi - lo) / (th - tl) / 1e6
+        tol = abs(d) * 1e-3
         for i in range(len(t) - 1, -1, -1):
-            if t[i] < tedge:
+            if t[i] < t_edge or t[i] > t_end:
+                continue
+            if abs(v[i] - b) > tol:
+                out["tsettle"] = (t[i] - t_edge) * 1e6
                 break
-            if abs(v[i] - v1) > tol:
-                tset = t[i] - tedge
-                break
-        res["tsettle_us"] = (tset * 1e6) if tset else 0.0
-    # overshoot
-    if abs(swing) > 1e-4:
-        seg = [v[i] for i in range(len(t)) if t[i] >= tedge]
-        peak = max(seg) if swing > 0 else min(seg)
-        res["overshoot_pct"] = abs((peak - v1) / swing) * 100
+        seg = [v[i] for i in range(len(t)) if t_edge <= t[i] <= t_end]
+        if seg:
+            peak = max(seg) if d > 0 else min(seg)
+            out["overshoot"] = abs((peak - b) / d) * 100
+        return out
+
+    up = edge(t_up, t_dn, v0, v1)
+    dn = edge(t_dn, tstop, v1, v2)
+    res["slew_rise_v_per_us"] = up.get("rate")
+    res["slew_fall_v_per_us"] = dn.get("rate")
+    rates = [r for r in (up.get("rate"), dn.get("rate")) if r is not None]
+    if rates:
+        res["slew_v_per_us"] = min(rates)          # the limiting direction
+        if len(rates) == 2 and min(rates) > 0:
+            res["slew_asym"] = max(rates) / min(rates)
+    res["tsettle_us"] = up.get("tsettle", 0.0)
+    res["tsettle_fall_us"] = dn.get("tsettle", 0.0)
+    res["overshoot_pct"] = up.get("overshoot")
     return res
 
 

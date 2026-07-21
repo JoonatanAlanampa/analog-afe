@@ -141,8 +141,13 @@ def parse_meas(stdout):
 def read_wrdata(path, ncols):
     """Parse an ngspice `wrdata` file into ncols float columns.
 
-    wrdata writes one x/y PAIR per vector, so a complex AC vector lands
-    as (freq, real, freq, imag) -- the repeated x column is not a bug.
+    Two different layouts, both read with ncols=3:
+      AC, one COMPLEX vector   -> freq, real, imag
+      tran, two REAL vectors   -> time, v(a), time, v(b)
+    wrdata repeats the x column once per vector, so the tran file's
+    third column is a duplicated time axis, not data -- harmless here
+    because only column 1 is used, but do not assume column 2 is the
+    second signal.
     """
     rows = []
     for line in Path(path).read_text().split("\n"):

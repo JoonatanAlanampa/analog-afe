@@ -34,20 +34,20 @@ Loads:
 
 ## Large-signal / DC
 
-| candidate | load | I_supply | V_out(quiescent) | slew | settle 0.1 % | overshoot | gain error |
-|---|---|---|---|---|---|---|---|
-| ota_5t | open | 1.9e-05 A | 0.898 V | 6.59 V/us PASS | 0.031 us | 0 % | -1.15 % |
-| ota_5t | line | 1.9e-05 A | 0.898 V | 0.132 V/us PASS | 1.22 us | 6.03e-05 % | -33.2 % |
-| ota_5t | pmodrc | 3.8e-05 A | 0.00674 V _(not biased)_ | 8.6e-07 V/us **FAIL** | 363 us | 0.0195 % | -99.9 % |
-| ota_5t | phone | 1.9e-05 A | 0.898 V | 0.0403 V/us **FAIL** | 12.7 us | 0.0492 % | -99.5 % |
-| ota_5t_x5 | open | 9.11e-05 A | 0.896 V | 10.4 V/us PASS | 0.015 us | 0.334 % | -1.52 % |
-| ota_5t_x5 | line | 9.11e-05 A | 0.896 V | 0.589 V/us PASS | 0.369 us | 2.12e-05 % | -11.7 % |
-| ota_5t_x5 | pmodrc | 0.000176 A | 0.0311 V _(not biased)_ | 1.77e-05 V/us **FAIL** | 340 us | 0.000713 % | -97.8 % |
-| ota_5t_x5 | phone | 9.11e-05 A | 0.896 V | 0.147 V/us PASS | 12.7 us | 0.0486 % | -97.8 % |
-| miller_ota | open | 8.05e-05 A | 0.9 V | 3.64 V/us PASS | 0.063 us | 0 % | 0.0248 % |
-| miller_ota | line | 8.05e-05 A | 0.9 V | 2.85 V/us PASS | 0.643 us | 32.3 % | -0.115 % |
-| miller_ota | pmodrc | 0.00203 A | 0.69 V _(not biased)_ | 1.37e-05 V/us **FAIL** | 222 us | 0.0297 % | -99.2 % |
-| miller_ota | phone | 8.05e-05 A | 0.9 V | 0.471 V/us PASS | 12.5 us | 0.0437 % | -67 % |
+| candidate | load | I_supply | V_out(quiescent) | slew (worse edge) | rise | fall | settle 0.1 % | overshoot | gain error |
+|---|---|---|---|---|---|---|---|---|---|
+| ota_5t | open | 1.9e-05 A | 0.898 V | 6.59 V/us PASS | 6.59 V/us | 6.59 V/us | 0.031 us | 0 % | -1.15 % |
+| ota_5t | line | 1.9e-05 A | 0.898 V | 0.132 V/us PASS | 0.132 V/us | 0.15 V/us | 1.23 us | 4.44e-05 % | -33.2 % |
+| ota_5t | pmodrc | 3.8e-05 A | 0.00674 V _(not biased)_ | 8.6e-07 V/us **FAIL** | 8.6e-07 V/us | 8.6e-07 V/us | 363 us | 0.0195 % | -99.9 % |
+| ota_5t | phone | 1.9e-05 A | 0.898 V | 0.0399 V/us **FAIL** | 0.0405 V/us | 0.0399 V/us | 20.4 us | 0.0367 % | -99.5 % |
+| ota_5t_x5 | open | 9.11e-05 A | 0.896 V | 10.4 V/us PASS | 10.4 V/us | 10.4 V/us | 0.015 us | 0.334 % | -1.52 % |
+| ota_5t_x5 | line | 9.11e-05 A | 0.896 V | 0.589 V/us PASS | 0.589 V/us | 0.601 V/us | 0.369 us | 1.47e-05 % | -11.7 % |
+| ota_5t_x5 | pmodrc | 0.000176 A | 0.0311 V _(not biased)_ | 1.77e-05 V/us **FAIL** | 1.77e-05 V/us | 1.77e-05 V/us | 340 us | 0.000714 % | -97.8 % |
+| ota_5t_x5 | phone | 9.11e-05 A | 0.896 V | 0.148 V/us PASS | 0.148 V/us | 0.175 V/us | 20.4 us | 0.0363 % | -97.8 % |
+| miller_ota | open | 8.05e-05 A | 0.9 V | 3.64 V/us PASS | 3.64 V/us | 4 V/us | 0.063 us | 0 % | 0.0248 % |
+| miller_ota | line | 8.05e-05 A | 0.9 V | 1.11 V/us PASS | 2.85 V/us | 1.11 V/us | 0.643 us | 32.3 % | -0.115 % |
+| miller_ota | pmodrc | 0.00203 A | 0.69 V _(not biased)_ | 1.37e-05 V/us **FAIL** | 1.37e-05 V/us | 1.38e-05 V/us | 222 us | 0.0297 % | -99.2 % |
+| miller_ota | phone | 8.05e-05 A | 0.9 V | 0.0978 V/us **FAIL** | 0.457 V/us | 0.0978 V/us | 20.2 us | 0.0326 % | -66.9 % |
 
 ## Operating point (line load)
 
