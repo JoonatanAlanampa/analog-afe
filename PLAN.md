@@ -33,11 +33,17 @@ Console roles (why each block exists):
 
 ## Phase 1 — close the op-amp (after the review)
 
-- [ ] Phase-2 benches the kickoff deliberately left out: input-referred
-      noise (the NMOS-pair flicker question from `design-notes.md` §1),
-      THD at 1 V pp / 1 kHz, CMRR, input common-mode range sweep
-- [ ] Corners: ss/ff/sf/fs × −40/25/85 °C, and Monte Carlo offset —
-      mismatch is the thing a digital flow never makes you think about
+- [x] **Input-referred noise** (`tb/noise.py` -> `docs/noise.md`) — done
+      out of order, because it was the unknown most likely to change the
+      topology call. It did not: all candidates ~23-24 µV rms, ~4× under
+      spec, and the NMOS-pair flicker caveat is REFUTED (`design-notes.md`
+      §6). Noise does not discriminate the topologies.
+- [ ] THD at 1 V pp / 1 kHz, CMRR, input common-mode range sweep
+- [ ] **Corners: ss/ff/sf/fs × −40/25/85 °C, and Monte Carlo offset** —
+      now the LARGEST remaining unknown, and it decides the open
+      compensation call (does the high-Rz lead-compensation point survive
+      corners, or only the conservative Rz ≈ 1/gm2 ones?). Mismatch is the
+      thing a digital flow never makes you think about.
 - [ ] Bias generator (constant-gm / beta-multiplier) with a start-up
       circuit, replacing the ideal external current source (`spec.md` O2)
 - [ ] Resolve O1: TT analog-slot supply domain, pad and ESD path

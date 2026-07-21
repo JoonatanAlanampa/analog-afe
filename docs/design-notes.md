@@ -152,7 +152,61 @@ different devices, a one-directional stimulus measures the better one.
 The same trap is waiting in the comparator (rising vs falling
 propagation delay) and the SAR ADC (charge vs discharge settling).
 
-## 6. Bench construction choices worth not re-deriving
+## 6. The flicker-noise caveat was wrong, and measuring it says so
+
+§1 ends with a promise: the NMOS pair was forced by headroom, it is the
+noisier device in the flicker band, so noise is an explicit bench rather
+than a shrug. That bench now exists (`tb/noise.py`,
+[`noise.md`](noise.md)) and it **refutes the caveat**.
+
+| candidate | V_CM | input-referred, 20 Hz–20 kHz | SNR vs 1 V pp |
+|---|---|---|---|
+| `ota_5t` (NMOS pair) | 0.9 V | 24.4 µV rms | ~83 dB |
+| `ota_5t_x5` (NMOS, 5× bias) | 0.9 V | 22.8 µV rms | ~84 dB |
+| `miller_ota` (NMOS pair) | 0.9 V | 24.3 µV rms | ~83 dB |
+| `ota_5t_pmos` (PMOS pair) | 0.5 V | **28.7 µV rms** | ~82 dB |
+
+Four things fall out, all measured:
+
+1. **The PMOS-input version is not quieter — it is worse** (28.7 vs
+   24.4 µV). The reason is in the per-device table, not in an argument:
+   swapping the input pair also swaps which device is the *load*. In the
+   NMOS-input design the pair dominates (xm1+xm2 = 76 % of output noise
+   power); in the PMOS-input design the dominant contributors are
+   xm3/xm4, the **NMOS mirror loads**, at 73 %, while the PMOS pair
+   contributes only 26 %. Either way sky130's NMOS flicker noise carries
+   ~75 % of the total — the only question is whether it enters through
+   the pair or through the mirror, and through the mirror it is worse
+   here. **The headroom decision cost nothing in noise.**
+
+2. **Noise does not discriminate the topologies.** 24.4 µV single-stage
+   vs 24.3 µV two-stage; the entire second stage contributes 0.4 %. One
+   argument fewer for the topology review to weigh — the decision rests
+   on drive, as [`review-brief.md`](review-brief.md) says.
+
+3. **Current does not buy quiet.** 5× the bias moves 24.4 → 22.8 µV.
+   Flicker noise is set by device *area* (∝ 1/WL), not by bias, so the
+   lever is a bigger input pair, not a bigger tail. Worth knowing before
+   anyone spends current trying to fix noise.
+
+4. **The whole audio band is flicker-dominated.** The 1/f corner is
+   above 20 kHz for every candidate — at the top of the band 1/f noise
+   is still 3.7–7.4× the thermal floor. So the noise is coloured across
+   the entire band, not just its bottom octaves.
+
+**But the totals pass with ~4× margin** (spec row 13 is 100 µV), and
+~83 dB SNR against a 1 V pp signal is roughly 35 dB more than 8-bit-era
+console audio can use. Noise is not a risk for this application.
+
+Three honest limits on that conclusion: the figure is **unweighted**
+(A-weighting would flatter it); it rests on the PDK's flicker
+parameters, which are the least trustworthy part of any model set and
+are exactly what silicon will contradict; and **input offset from
+mismatch is a different question entirely** and still unmeasured — in a
+unity-gain buffer it lands straight on the output as a DC shift into the
+coupling cap.
+
+## 7. Bench construction choices worth not re-deriving
 
 - **Open-loop AC with the DC loop closed.** The feedback path is a 1 GH
   inductor (short at DC, open at AC) and the stimulus arrives through a

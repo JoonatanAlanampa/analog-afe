@@ -86,15 +86,25 @@ a single-stage 5T OTA, or a two-stage Miller op-amp? And at what bias?
 
 ## What is NOT yet known (and would change the answer)
 
-- **Noise.** The NMOS input pair was forced by headroom
-  ([`design-notes.md`](design-notes.md) §1) and is the *noisier* device
-  in the flicker band this circuit works in. Unmeasured. If it fails,
-  the fixes are input-pair area, chopping, or a 3.3 V rail.
+- ~~**Noise.**~~ **MEASURED — and it removes an argument.** See
+  [`noise.md`](noise.md) and `design-notes.md` §6. All candidates land
+  at 23–24 µV rms input-referred (20 Hz–20 kHz), ~4× under spec row 13
+  and ~83 dB SNR against a 1 V pp signal. Three consequences for this
+  decision: (a) the flicker caveat that hung over the NMOS pair is
+  **refuted** — the PMOS-input version is *worse* (28.7 µV), because
+  swapping the pair swaps the load and sky130's NMOS carries ~75 % of
+  the noise either way; (b) noise does **not** discriminate the two
+  topologies (24.4 vs 24.3 µV; the whole second stage adds 0.4 %), so
+  the call rests on drive; (c) bias current is not the lever — 5× the
+  current buys 1.6 µV, because flicker scales with device *area*.
 - **Distortion (THD), CMRR, input common-mode range.** Unmeasured.
 - **PVT corners and Monte Carlo mismatch.** Everything above is one
   nominal `tt` 25 °C run. Offset in particular is unmeasured, and a
   unity-gain audio buffer's offset lands straight on the output as a DC
-  shift into the coupling cap.
+  shift into the coupling cap. This is now the **largest** remaining
+  unknown, and it also decides open call 3 — whether the high-Rz
+  compensation point survives corners, or whether the conservative
+  Rz ≈ 1/gm2 points are the only defensible ones.
 - **O1 in [`spec.md`](spec.md): the TT analog slot's supply domain.**
   If 3.3 V is available, the headroom constraint that shaped both
   candidates relaxes and a PMOS input pair (quieter) returns to the

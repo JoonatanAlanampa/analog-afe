@@ -115,10 +115,12 @@ python tb/run.py ac miller_ota   # one bench, one candidate
 ```sh
 python tb/sweep_comp.py          # Cc x Rz compensation sweep for miller_ota
 python tb/sweep_comp.py line --report   # re-render from cached data
+python tb/noise.py               # input-referred noise -> docs/noise.md
 ```
 
-Results: [`docs/results.md`](docs/results.md) and
-[`docs/compensation.md`](docs/compensation.md). Spec targets are asserted
+Results: [`docs/results.md`](docs/results.md),
+[`docs/compensation.md`](docs/compensation.md) and
+[`docs/noise.md`](docs/noise.md). Spec targets are asserted
 in `SPEC` in `tb/run.py` and print PASS/FAIL per row.
 
 ## For the reviewer
@@ -135,7 +137,32 @@ is what the `ota_5t_x5` variant exists to prove. The two-stage amp holds
 56.8 dB into the same load at comparable current, with 0.115 % unity-gain
 step error and 31 dB more PSRR. Nobody drives 32 Ω.
 
+## A caveat that measurement refuted
+
+The NMOS pair above was forced by headroom, and the honest cost stated
+at the time was flicker noise — the NMOS being the noisier device in
+exactly the band this circuit works in. Measured
+([`noise.md`](noise.md)), that cost is **zero**:
+
+| | input-referred, 20 Hz–20 kHz |
+|---|---|
+| NMOS pair (`ota_5t`) | 24.4 µV rms |
+| PMOS pair (`ota_5t_pmos`, at its own valid 0.5 V CM) | **28.7 µV rms** |
+
+Swapping the input pair also swaps which device is the *load*. With an
+NMOS pair the pair dominates (76 % of output noise power); with a PMOS
+pair the **NMOS mirror loads** dominate (73 %). sky130's NMOS flicker
+noise carries ~75 % of the total either way — through the mirror it is
+simply worse. All candidates land ~4× under spec at ~83 dB SNR against
+a 1 V pp signal, so noise is not a risk here, and it does not
+discriminate the two topologies (the entire second stage adds 0.4 %).
+
+Bias current is not the lever either: 5× the current buys 1.6 µV,
+because flicker scales with device *area*, not bias.
+
 ## Next
 
-Topology review, then phase 1 (noise, THD, CMRR, corners, Monte Carlo
-mismatch, real bias generator). Full roadmap in [`PLAN.md`](PLAN.md).
+Topology review (Fable, queued), then the rest of phase 1 — THD, CMRR,
+ICMR, and the now-largest unknown: PVT corners and Monte Carlo offset,
+which also decides the open compensation call. Full roadmap in
+[`PLAN.md`](PLAN.md).
