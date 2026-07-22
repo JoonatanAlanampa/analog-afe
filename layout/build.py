@@ -467,6 +467,28 @@ def build_miller_ota():
     D.strap(top, 7.30, 28.25, 9.50, 28.55, layer=D.MET1)         # VDD: stage1 out
     D.strap(top, 9.20, 16.35, 9.50, 28.55, layer=D.MET1)         #      down the gap
     D.strap(top, 9.20, 16.35, 15.10, 16.65, layer=D.MET1)        #      into stage2
+
+    # n2 -- the inter-stage signal: stage-1 output (ota5t_core VOUT node) to the
+    # stage-2 gate (out_stage N2) and the resistor Rz.P. The pins are thin li
+    # buried mid-cell, so tap each up to met2 and route OVER the cells (met2 is
+    # free above these li/met1 blocks). This is the "give the block an
+    # edge-accessible pin" step, done as an over-the-cell route.
+    n2 = [(6.0, 19.5), (17.685, 15.68), (13.5, 18.3)]     # VOUT(n2), N2, Rz.P
+    for px, py in n2:
+        D.via_li_met2(top, px, py)
+    D.strap(top, 6.0 - 0.16, 19.5 - 0.16, 17.685 + 0.16, 19.5 + 0.16, D.MET2)   # trunk
+    D.strap(top, 17.685 - 0.16, 15.68 - 0.16, 17.685 + 0.16, 19.5 + 0.16, D.MET2)  # ->N2
+    D.strap(top, 13.5 - 0.16, 18.3 - 0.16, 13.5 + 0.16, 19.5 + 0.16, D.MET2)    # ->Rz.P
+    D.label(top, "n2", 8.5, 19.5, layer=D.MET2LBL)
+
+    # vb -- the shared bias: stage-1 tail diode (ota5t_core VB) to the stage-2
+    # sink gate (out_stage VB), also on over-the-cell met2 along the bottom
+    D.via_li_met2(top, 2.95, 1.4)
+    D.via_li_met2(top, 13.815, 1.3)
+    D.strap(top, 2.95 - 0.16, 1.4 - 0.16, 2.95 + 0.16, 2.6 + 0.16, D.MET2)      # up
+    D.strap(top, 2.95 - 0.16, 2.6 - 0.16, 13.815 + 0.16, 2.6 + 0.16, D.MET2)    # across
+    D.strap(top, 13.815 - 0.16, 1.3 - 0.16, 13.815 + 0.16, 2.6 + 0.16, D.MET2)  # down
+    D.label(top, "vb", 8.5, 2.6, layer=D.MET2LBL)
     top.flatten()
     lib = gdstk.Library()
     lib.add(top)

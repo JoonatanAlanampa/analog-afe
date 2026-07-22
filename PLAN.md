@@ -165,9 +165,14 @@ Console roles (why each block exists):
       not yet a whole-amp LVS — the sub-blocks' pins aren't on abutment edges (VB/
       VOUT/N2 sit mid-cell), so inter-block signal routing is the next step (the
       "doesn't compose for free" lesson at amplifier scale). Added to the README.
-- [ ] **Inter-block signal routing** (n2 → xm5 gate → Rz, the Rz/Cc branch to
-      vout, shared vb) → **post-extraction re-simulation** (decides the silicon)
-      → rail-tie guard rings (bulk ports → real body ties).
+- [x] **Inter-stage signal routing** (`miller_ota`): `n2` (stage-1 output →
+      `xm5` gate → `Rz.P`) and the shared `vb` (tail diode → sink gate) routed
+      **over the cells on met2** (via-stack tap up / cross / drop down — the
+      answer to the "doesn't compose for free" lesson at amplifier scale), plus
+      the VDD/VSS rails tied. **DRC-clean.** device.py += `via_li_met2` tap.
+- [ ] **Close the Rz/Cc compensation branch** (`Rz.M`=`nz` → `Cc` bottom plate,
+      `Cc` top plate → `vout`, via a met2→met3→met4 stack) → **post-extraction
+      re-simulation** (decides the silicon) → rail-tie guard rings.
 
 ## Phase 3 — comparator
 

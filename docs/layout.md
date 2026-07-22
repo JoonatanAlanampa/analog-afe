@@ -109,7 +109,7 @@ local — so nothing has to cross. It extracts to two W=10 PMOS, xm3 diode-tied 
 | `out_stage` (miller stage 2: PMOS CS + NMOS sink, class-A) | **CLEAN** | **MATCH** |
 | `res_rz` (xhigh_po poly resistor, ~10 kΩ) | **CLEAN** | **R=10 kΩ ✓** (extract) |
 | `cap_cc` (MIM cap on met3, ~200 fF) | **CLEAN** | **C=200 fF ✓** (extract) |
-| `miller_ota` (whole amp: 4 blocks assembled + tied rails) | **CLEAN** | — (floorplan) |
+| `miller_ota` (whole amp: 4 blocks + rails/n2/vb wired) | **CLEAN** | — (assembly) |
 
 **All three sub-blocks of the 5T OTA — the NMOS input pair, the PMOS mirror
 load, and the NMOS tail/bias — are laid out and verified as the right circuit,
@@ -216,31 +216,43 @@ confirms the drawn geometry **is** the intended PDK device *and* measures its
 value (`res_xhigh_po_0p69` @ **R = 10000 Ω**; `cap_mim` @ **C = 2e-13 F**), which
 is exactly what matters for devices whose value is the spec.
 
-## The whole amplifier, assembled
+## The whole amplifier, assembled and wired
 
-![The whole two-stage Miller amplifier assembled: the 5T core (stage 1) on the left, the class-A output (stage 2) beside it, the nulling resistor Rz and the MIM cap Cc to the right, VDD/VSS rails tied across the stages on met1. DRC-clean.](img/layout_miller_ota.png)
+![The whole two-stage Miller amplifier: the 5T core (stage 1), the class-A output (stage 2), the nulling resistor Rz and the MIM cap Cc, with VDD/VSS rails tied and the n2 and vb signals routed over the cells on met2. DRC-clean.](img/layout_miller_ota.png)
 
-`miller_ota` places the four verified blocks as one floorplan — the **5T core**
+`miller_ota` places the four verified blocks as one cell — the **5T core**
 (stage 1), the **class-A output** (stage 2), the **nulling resistor** `Rz` and the
-**MIM cap** `Cc` — and ties the **VDD and VSS rails** across the two active stages
-on met1, in the clean gap between them. Each block is individually DRC-clean and
-LVS/extraction-verified; this is them assembled into the amplifier, and the whole
-placed cell is **DRC-clean**.
+**MIM cap** `Cc` — and **wires the amplifier**:
 
-**Honest scope.** This is the assembled *floorplan*, not yet a whole-amp LVS. The
-sub-blocks' pins were not brought to abutment edges — `VB`, `VOUT`/`n2` and the
-`N2` gate all sit mid-cell — so the inter-block **signal** routing (`n2` → the
-`xm5` gate, the `Rz`/`Cc` compensation branch, the `vb` tie) plus a whole-amp
-post-extract is the next step. It is exactly the *"a block does not compose for
-free"* lesson the 5T core taught, now one level up: the fix there was to re-route
-the input pair to face its neighbours, and the fix here is to give each block
-edge-accessible pins before the final stitch.
+- the **VDD and VSS rails** are tied across the two active stages on met1, in the
+  clean gap between them;
+- **`n2`**, the inter-stage signal, carries the stage-1 output to the `xm5` gate
+  *and* to `Rz.P` (the compensation tap);
+- **`vb`**, the shared bias, ties the stage-1 tail diode to the stage-2 sink gate.
+
+The signal nets were the interesting part. Each block's `n2`/`vb`/`N2`/`VB` pins
+are thin (0.17 µm) `li` buried mid-cell — they were never brought to an abutment
+edge — so rather than re-open the blocks, `n2` and `vb` are **routed *over* the
+cells on met2**, which is free above these `li`/`met1` blocks: a via stack taps
+each pin up (li → met1 → met2), the wire runs across on met2, and another stack
+drops down at the far pin. The whole wired cell is **DRC-clean**. This is the
+*"a block does not compose for free"* lesson from the 5T core, one level up — and
+the over-the-cell metal layer is the answer to it at amplifier scale.
+
+**What's still open on the wiring.** The active signal path (`n2`, `vb`) and the
+rails are routed; the **`Rz`/`Cc` compensation branch** is not yet closed — that
+needs the cap's plates (`Cc` is on met3/met4) tied to `Rz.M` (`nz`) and to `vout`
+through a met2→met3→met4 via stack. And a **whole-amp post-extract** LVS remains
+the signoff (the passives block a device *compare*, and KLayout's deep-mode
+extractor errors on the large flattened multi-block cell — a tooling quirk, not a
+geometry one; every sub-block is individually verified).
 
 ## What's next
 
-- **Inter-block signal routing** — bring the blocks' internal nodes to their
-  edges and wire the amplifier: `n2` (stage-1 output → `xm5` gate → `Rz`), the
-  `Rz`/`Cc` compensation branch to `vout`, and the shared `vb`.
+- **Close the compensation branch** — tie `Rz.M` (`nz`) to the `Cc` bottom plate
+  and the `Cc` top plate to `vout`, through a met2 → met3 → met4 via stack (the
+  cap's plates live on the upper metals). The active path (`n2`, `vb`) and the
+  rails are already wired.
 - **Post-extraction re-simulation** — run the benches again on the parasitic-
   extracted netlist, the number that actually decides whether the silicon works.
 - **Rail-tie guard rings** (substrate → VSS, nwell → VDD) replace the bulk

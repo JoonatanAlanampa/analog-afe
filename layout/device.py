@@ -147,6 +147,15 @@ def via(cell, xc, yc):
     _r(cell, MET1, xc - 0.14, yc - 0.15, xc + 0.14, yc + 0.15)
 
 
+def via_li_met2(cell, xc, yc):
+    """Tap an li wire up to met2 for over-the-cell routing: a small li pad to
+    host the contact, then li->met1 (mcon) and met1->met2 (via). The pad widens
+    a thin (0.17) signal li enough to enclose the mcon."""
+    _r(cell, LI, xc - 0.18, yc - 0.18, xc + 0.18, yc + 0.18)
+    via(cell, xc, yc)
+    via2(cell, xc, yc)
+
+
 def via2(cell, xc, yc):
     """met1 -> met2 via: a VIA (0.15 exact) capped by a met1 pad below and a
     met2 pad above, each enclosing it by 0.085 (0.32 sq). The caller's own met1
