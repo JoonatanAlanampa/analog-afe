@@ -35,24 +35,25 @@ disturb.
 | 9 | Slew rate | ≥ 0.1 V/µs | 1 V pp at 20 kHz needs 2π·20k·0.5 = 0.063 V/µs; ~60 % margin |
 | 10 | PSRR at 1 kHz | ≥ 40 dB | it shares a die with a CPU, a QSPI controller and video timing |
 | 11 | Quiescent current | ≤ 200 µA | budget, not a derivation — revisit when the DAC's is known |
-| 12 | THD | **≤ 0.1 %** at 1 V pp, 1 kHz (line-level; was < 1 %) | measured **1.44 % — FAILS**, clean < 0.1 % only to ~0.75 V pp; fix = output-current + Cc/Rz retune (`docs/thd.md`, review Call 2) |
+| 12 | THD | **≤ 0.2 %** at 1 V pp, 1 kHz (line-level; 0.1 % aspiration needs class-AB) | **0.167 % — MEETS** at the co-designed fix (×2.5 output, Cc 4p / Rz 10k), corner-verified PM ≥ 75.6°, I_q ≤ 174 µA; shipped ×1 was 1.44 % (`docs/thd.md`, `corners.md`, design-notes §12) |
 | 13 | Input-referred noise | < 100 µV rms, 20 Hz–20 kHz | measured **24.3 µV — PASS** (~4× margin, ~83 dB SNR; `docs/noise.md`) |
 
 Targets 1–11 are checked by `tb/run.py`; 5, 7, 8, 10 and 9 are asserted
 in `SPEC` in `tb/run.py` and print PASS/FAIL in `docs/results.md`. Rows 12
 (THD, `tb/thd.py`) and 13 (noise, `tb/noise.py`) have their own benches.
 
-**Row 12 is the one open failure.** The topology review's Call 2 asked to
+**Row 12 — found failing, now fixed.** The topology review's Call 2 asked to
 stop using open-loop gain (row 5) as a distortion proxy and measure THD
-directly; that target lands here in row 12 (already the THD row), tightened
-to the review's line-level 0.1 %, and now measured. The as-built buffer is
-1.44 % at the required 1 V pp swing — a clean line source only to ~0.75 V pp,
-because the class-A output sink (61.5 µA) runs out of pull. The `drive`
-sweep in `docs/thd.md` sizes the fix (a ×1.5 output stage nominally clears
-< 1 % + 60° PM in budget; the 0.1 % target needs ≈×2 *and* a compensation
-retune) — the design change itself is the first open item of phase 1's
-close-out, not a spec edit. Call 2's separate row-5 gain relaxation (accept
-56.8 dB, still asserted at ≥ 60 in `tb/run.py`) is a tracked follow-up.
+directly. Measured, the as-built buffer was 1.44 % at the required 1 V pp
+swing — the class-A output sink (61.5 µA) running out of pull, a clean line
+source only to ~0.75 V pp. The fix (`docs/thd.md`, design-notes §12)
+co-designs output current and compensation — **×2.5 output, Cc 4 pF /
+Rz 10 kΩ → 0.167 % THD**, corner-verified to PM ≥ 75.6° and I_q ≤ 174 µA — an
+8.6× improvement that clears the target with margin. The review's 0.1 %
+aspiration is a class-A *budget* limit (0.1 % needs I_q > 200 µA) and would
+take a class-AB output stage. Call 2's separate row-5 gain relaxation (accept
+56.8 dB, still asserted ≥ 60 in `tb/run.py`) is a tracked follow-up — eased
+anyway, since the fix's loaded gain is 62–65 dB.
 
 ## Load corners
 

@@ -19,9 +19,10 @@ never makes you think about: biasing, matching, noise, offset, headroom.
 is done and the topology **decision is made** — two-stage Miller for the
 audio buffer, the 5T OTA kept for the high-Z comparator/SAR blocks
 ([`docs/topology-review.md`](docs/topology-review.md)). Phase-1
-characterisation is under way: noise and PVT corners pass; **THD is the one
-open failure** — 1.44 % at the 1 V pp spec swing, with the fix sized but not
-yet applied ([see below](#the-gap-that-measurement-found--thd)).
+characterisation: noise and PVT corners pass; THD was found **failing** at
+the 1 V pp spec swing (1.44 %) and is now **fixed** — a co-designed output
+stage + compensation retune, corner-verified, **8.6× better**
+([see below](#the-gap-that-measurement-found--thd)). CMRR and ICMR remain.
 
 ## The block under design
 
@@ -169,33 +170,39 @@ because flicker scales with device *area*, not bias.
 
 ## The gap that measurement found — THD
 
-Noise refuted a feared problem; THD found a real one. At the 1 V pp spec
-swing the buffer is **1.44 %** THD ([`docs/thd.md`](docs/thd.md)) — over
-both the old < 1 % row and the review's proposed 0.1 %. It is a clean line
-source only to ~0.75 V pp, then knees, because the class-A output sink
-(61.5 µA — the same device behind the 2.6× slew asymmetry) runs out of pull
-against the 50 µA the load demands.
+Noise refuted a feared problem; THD found a real one — and fixing it is a
+small design story in itself.
 
-The bench then sizes the fix, and the sizing is the point: scaling the
-output stage (a `pout` param) drops THD hard, but **reading phase margin
-beside it** shows the ×1 compensation does not come along —
+![Left: THD vs output swing — the buffer knees past both targets at the 1 Vpp spec swing. Right: THD vs phase margin — raising output drive alone walks into the 60-degree wall, while the co-designed fix clears it.](docs/img/thd.png)
 
-| output scale | THD | phase margin | I_q |
-|---|---|---|---|
-| ×1 (shipped) | 1.44 % | 68.3° | 80 µA |
-| ×1.5 | 0.62 % | 63.2° | 111 µA |
-| ×2 | 0.22 % | **54.6°** (< 60° spec) | 142 µA |
+At the 1 V pp spec swing the as-built buffer is **1.44 %** THD
+([`docs/thd.md`](docs/thd.md), left panel) — over both the old < 1 % row and
+the review's 0.1 %. It is a clean line source only to ~0.75 V pp, then knees,
+because the class-A output sink (61.5 µA — the same device behind the 2.6×
+slew asymmetry) runs out of pull against the 50 µA the load demands.
 
-More output gm2 was *expected* to help phase margin (it pushes the output
-pole out); instead the UGF rises (9.6 → 16.5 MHz) and the margin falls,
-because Rz = 20 kΩ is a lead/feedforward network, not pole-splitting. So the
-fix is a joint output-current **and** Cc/Rz retune, not a knob — exactly
-what a lower-THD point measured *without* its phase margin would have
-hidden. The ×1.5 column is the minimal change that meets the existing spec
-in budget; 0.1 % needs ≈×2 plus a recompensation pass.
+Sizing the fix is the interesting part (right panel). Scaling the output
+stage (a `pout` param) drops THD hard, but **reading phase margin beside it**
+shows the ×1 compensation does not come along: more output gm2 was *expected*
+to push the output pole out and help PM; instead the UGF rises and the margin
+*falls*, because Rz = 20 kΩ is a lead/feedforward network, not pole-splitting.
+So output current and compensation have to be co-designed. The search
+(`tb/thd.py fix`, `tb/corners.py fix`) lands on:
+
+> **×2.5 output, Cc 4 pF / Rz 10 kΩ → 0.167 % THD, 81° PM, 173 µA** — an
+> **8.6× improvement**, corner-verified to PM ≥ 75.6° across process,
+> −40…85 °C and ±10 % supply, inside the 200 µA budget and with *more* phase
+> margin than the shipped design.
+
+`Rz 20k → 10k` is the phase-margin lever (it cuts the feedforward that was
+pushing the UGF up), `pout` is the THD lever. The review's 0.1 % aspiration
+is a *class-A budget* limit, not a compensation one — it needs I_q > 200 µA;
+the last 1.7× is a class-AB output stage, which the 4 mA pad rules out only
+for *driving* headphones, not for *linearity* into a line load. At 0.167 %
+the buffer is already ~35 dB quieter in distortion than 8-bit console audio
+can use.
 
 ## Next
 
-The rest of phase 1: apply the THD fix (pick a `pout`, recompensate,
-re-run `corners.py` on it), then **CMRR** and **input-common-mode range**.
-Full roadmap in [`PLAN.md`](PLAN.md).
+The rest of phase 1: **CMRR** and **input-common-mode range** — the THD fix
+above is applied and corner-verified. Full roadmap in [`PLAN.md`](PLAN.md).

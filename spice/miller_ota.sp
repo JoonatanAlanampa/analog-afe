@@ -32,6 +32,12 @@
 * as-shipped stage sink-limited at the 1 Vpp spec swing; tb/thd.py drive
 * sweeps it to size the distortion-vs-quiescent-current trade. Stage 1 and
 * the bias diode are untouched, so gm1 (hence UGF ~ gm1/Cc) is unchanged.
+*
+* RECOMMENDED OPERATING POINT -- the applied THD fix (design-notes.md §12,
+* corner-verified in corners.md):  pout=2.5  pcc=4p  prz=10k
+*   -> 0.167% THD @1kHz/1Vpp, worst-corner PM 75.6 deg, Iq <= 174 uA.
+* The benches pass these explicitly; the .subckt defaults below stay at the
+* original values so the pre-fix drive sweep and results.md still reproduce.
 .subckt miller_ota vinp vinn vout vb vdd vss pcc=2p prz=2k pout=1
 
 * --- bias diode: external source into vb sets 20 uA --------------------

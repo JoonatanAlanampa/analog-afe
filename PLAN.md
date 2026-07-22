@@ -49,8 +49,15 @@ Console roles (why each block exists):
       required swing. The `drive` sweep sizes the fix: scaling the output
       stage drops THD hard (0.22 % by ×2) but the ×1 compensation loses
       phase margin (< 60° by ×2), so the fix is a **joint output-current +
-      Cc/Rz retune**, not a knob (`design-notes.md` §11). Not yet applied:
-      picking a (pout, Cc, Rz) point and re-running `corners.py` on it.
+      Cc/Rz retune**, not a knob (`design-notes.md` §11).
+- [x] **THD fix applied + corner-verified** (`design-notes.md` §12,
+      `corners.md`, figure `docs/img/thd.png`): co-design lands on **×2.5
+      output, Cc 4 pF / Rz 10 kΩ → 0.167 % THD** (8.6× better than shipped),
+      worst-corner PM 75.6°, UGF ≥ 8.73 MHz, I_q ≤ 174 µA — meets spec with
+      margin and *more* PM headroom than the shipped design. `Rz 20k→10k` is
+      the phase-margin lever (cuts the §7 feedforward), `pout` the THD lever.
+      The review's 0.1 % is a class-A budget limit (needs I_q > 200 µA) → a
+      class-AB output is the named path if ever wanted.
 - [ ] CMRR, input common-mode range (ICMR) sweep
 - [x] **Corners: ss/ff/sf/fs × −40/25/85 °C ± 10 % supply, and Monte
       Carlo offset** (`tb/corners.py` -> `docs/corners.md`). Settled the

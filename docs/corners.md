@@ -78,6 +78,30 @@ Process x temperature at 1.8 V, plus ±10 % supply at tt/25 °C. Targets: PM ≥
 | tt | +25 °C | 1.62 V | 55.7 dB | 2.84 MHz | 71.6° | 0.810 V | 79.6 µA | — |
 | tt | +25 °C | 1.98 V | 57.6 dB | 2.96 MHz | 71.8° | 0.990 V | 81.2 µA | — |
 
+## The THD fix over PVT — THD fix (×2.5, Cc 4p, Rz 10k)
+
+The co-designed THD fix (`design-notes.md` §12) re-run across the same box, pout threaded into both benches. **Worst-corner PM 75.6°** (ff/-40 °C/1.8 V), worst UGF 8.73 MHz, worst-case I_q 174 µA against the 200 µA budget — **meets PM and UGF at every corner**. (THD itself is quoted nominal in `thd.md`; corner-THD is the one step past this.)
+
+| process | temp | Vdd | gain @1 Hz | UGF | PM | V_out | I_supply | devices out of saturation |
+|---|---|---|---|---|---|---|---|---|
+| tt | -40 °C | 1.8 V | 64.4 dB | 15.05 MHz | 75.9° | 0.900 V | 172.2 µA | — |
+| tt | +25 °C | 1.8 V | 63.5 dB | 11.33 MHz | 81.0° | 0.900 V | 172.7 µA | — |
+| tt | +85 °C | 1.8 V | 62.6 dB | 8.86 MHz | 83.8° | 0.900 V | 173.0 µA | — |
+| ss | -40 °C | 1.8 V | 64.5 dB | 14.77 MHz | 76.2° | 0.900 V | 171.8 µA | — |
+| ss | +25 °C | 1.8 V | 63.6 dB | 11.14 MHz | 81.2° | 0.900 V | 172.3 µA | — |
+| ss | +85 °C | 1.8 V | 62.7 dB | 8.73 MHz | 83.7° | 0.900 V | 172.7 µA | — |
+| ff | -40 °C | 1.8 V | 64.2 dB | 15.33 MHz | 75.6° | 0.900 V | 172.7 µA | — |
+| ff | +25 °C | 1.8 V | 63.3 dB | 11.52 MHz | 80.9° | 0.900 V | 173.1 µA | — |
+| ff | +85 °C | 1.8 V | 62.4 dB | 8.99 MHz | 83.8° | 0.900 V | 173.4 µA | — |
+| sf | -40 °C | 1.8 V | 63.6 dB | 15.17 MHz | 75.8° | 0.900 V | 173.0 µA | — |
+| sf | +25 °C | 1.8 V | 62.8 dB | 11.42 MHz | 80.9° | 0.900 V | 173.3 µA | — |
+| sf | +85 °C | 1.8 V | 62.0 dB | 8.93 MHz | 83.7° | 0.900 V | 173.6 µA | — |
+| fs | -40 °C | 1.8 V | 64.9 dB | 14.88 MHz | 76.1° | 0.900 V | 171.5 µA | — |
+| fs | +25 °C | 1.8 V | 63.9 dB | 11.22 MHz | 81.2° | 0.900 V | 172.1 µA | — |
+| fs | +85 °C | 1.8 V | 62.9 dB | 8.78 MHz | 83.9° | 0.900 V | 172.4 µA | — |
+| tt | +25 °C | 1.62 V | 62.3 dB | 10.93 MHz | 81.7° | 0.810 V | 171.0 µA | — |
+| tt | +25 °C | 1.98 V | 64.2 dB | 11.64 MHz | 80.5° | 0.990 V | 174.3 µA | — |
+
 ## Monte Carlo input offset (mismatch)
 
 `tt_mm` corner, 30 draws, unity-gain buffer, one `.option seed` per draw.

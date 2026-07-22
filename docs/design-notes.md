@@ -425,3 +425,48 @@ as a THD target" lands there (tightened to its 0.1 %), now measured. Row 5's
 separate gain relaxation (accept 56.8 dB) is still only in the review, not
 yet in `tb/run.py`'s asserted `a_lf_db ≥ 60` — a tracked follow-up, not part
 of this bench.
+
+## 12. The THD fix — co-designed and corner-verified
+
+§11 sized the problem and said the fix had to be a joint output-current +
+compensation retune. `tb/thd.py fix` runs that co-design search and
+`tb/corners.py fix` verifies the winner over PVT. It works, and the two
+levers separate cleanly:
+
+- **Rz is the phase-margin lever, and it is free in THD.** Dropping
+  Rz 20 kΩ → 10 kΩ at ×2 output lifts PM from 54.6° to 74.7° while THD holds
+  at 0.22 %. The reason is §7: Rz sets the feedforward that was pushing the
+  UGF up, so halving it pulls the crossover back down (16.5 → 9.6 MHz) and
+  hands the margin back. The property that made Rz = 20 kΩ a *corner-stable*
+  lead network is now a deliberate design knob.
+- **pout is the THD lever, and compensation barely touches it.** 1 kHz THD
+  is set by output-stage linearity; the loop gain at 1 kHz is ≈ the DC gain
+  regardless of Cc, so recompensation moves THD by < 0.01 %. Only more output
+  current cuts it: ×2 → 0.22 %, ×2.5 → 0.17 %, and it stops there (×3 is over
+  the I_q budget and its collapsing PM re-raises THD, §11).
+
+**The applied operating point: ×2.5 output, Cc 4 pF, Rz 10 kΩ.**
+
+| metric | shipped (×1) | **fix (×2.5)** | spec |
+|---|---|---|---|
+| THD @ 1 kHz / 1 V pp | 1.44 % | **0.167 %** | (see below) |
+| phase margin, worst corner | 67.4° | **75.6°** (ff/−40 °C) | ≥ 60° |
+| UGF, worst corner | — | **8.73 MHz** | ≥ 2 MHz |
+| I_q, worst corner | 80 µA | **174 µA** | ≤ 200 µA |
+| loaded DC gain | 56.8 dB | **62.0–64.9 dB** | (row 5) |
+
+So the shortfall is fixed: **8.6× better THD**, clearing the old < 1 % row by
+6×, with *more* phase-margin headroom than the shipped design and a bonus
+6–8 dB of loop gain — all inside the 200 µA budget. Full corner table in
+[`corners.md`](corners.md); the two-panel figure is
+[`img/thd.png`](img/thd.png).
+
+**What it does not reach, and why that is a device limit, not a design miss.**
+The review's 0.1 % is out of reach for a *class-A* output stage in this
+budget: 0.1 % needs pout ≥ 3, i.e. I_q > 200 µA. The last 1.7× is a
+**class-AB output** — and Call 4 ruled class-AB out only for *driving* 32 Ω
+(the 4 mA pad), NOT for *linearity* into the line load, so it is a legitimate
+future option, named here as the path to 0.1 % if the console ever wants it.
+At 0.167 % the buffer is already ~35 dB below the distortion 8-bit-era
+console source material carries, so for this application the fix is
+comfortably sufficient.

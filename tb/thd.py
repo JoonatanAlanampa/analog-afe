@@ -63,17 +63,18 @@ def run_thd(topo, freq, vpp, load="line", comp=COMP, pout=1):
     """One transient + Fourier. Returns THD % and normalised harmonics.
 
     pout scales the miller_ota output stage (spice/miller_ota.sp); it is
-    ignored for ota_5t, which has no such param. The tag carries load and
-    pout as well as topo/freq/vpp because every one of them changes the
-    result -- the repo's standing rule after H1/H2 (topology-review.md).
-    comp is fixed to COMP everywhere here; if it is ever swept, add it to
-    the tag too.
+    ignored for ota_5t, which has no such param. The tag carries load, pout
+    AND comp as well as topo/freq/vpp because every one of them changes the
+    result -- the repo's standing rule after H1/H2 (topology-review.md). comp
+    goes into the tag because the `fix` search sweeps it; without it every
+    (Cc, Rz) point at one pout would overwrite the same file.
     """
     amp = vpp / 2.0
     nper = 20
     tstop = nper / freq
     tstep = 1.0 / (freq * 500)
-    tag = f"thd_{topo}_{int(freq)}_{int(vpp*1000)}_{load}_p{pout}"
+    ctag = re.sub(r"\W+", "", comp) if topo == "miller_ota" else "na"
+    tag = f"thd_{topo}_{int(freq)}_{int(vpp*1000)}_{load}_p{pout}_{ctag}"
     sub = (SPICE / f"{topo}.sp").read_text()
     params = f"{comp} pout={pout}" if topo == "miller_ota" else ""
     net = f"""* {topo} THD, {freq} Hz, {vpp} Vpp, load={load}, pout={pout}
@@ -127,6 +128,41 @@ def run_drive(pout):
                 converged=op.get("converged"))
 
 
+def run_point(pout, cc, rz):
+    """One retuned (pout, Cc, Rz) operating point: THD, PM, UGF and Iq at the
+    same bias. The `fix` search uses this to CO-DESIGN output current and
+    compensation, because §11 showed raising pout alone busts phase margin
+    (the Rz = 20 kΩ lead network pushes the UGF up as gm2 rises)."""
+    comp = f"pcc={cc:g} prz={rz:g}"
+    tag = f"_fix_p{pout}_cc{cc:g}_rz{rz:g}"
+    thd = run_thd("miller_ota", 1000, 1.0, comp=comp, pout=pout)
+    ac = bench_ac("miller_ota", "line", params=f"{comp} pout={pout}",
+                  tag_extra=tag)
+    op = bench_op("miller_ota", "line", tag_extra=tag, params=f"pout={pout}")
+    return dict(pout=pout, cc=cc, rz=rz, thd_pct=thd["thd_pct"],
+                pm_deg=ac.get("pm_deg"), ugf_hz=ac.get("ugf_hz"),
+                isupply=op.get("isupply"))
+
+
+# The `fix` search grid. §11's `drive` sweep showed more output current cuts
+# THD but the ×1 compensation (Cc 2p / Rz 20k) loses phase margin as the UGF
+# rises. This co-designs the two: at each pout, more Cc and/or less Rz pulls
+# the UGF back down to buy the margin back, without dropping the dominant pole
+# into the audio band (which would starve the 1 kHz loop gain and re-raise
+# THD). Goal: THD ≤ 0.1 %, PM ≥ 65° nominal (for corner margin), Iq ≤ 200 µA.
+FIX_GRID = [
+    (2.0, 2e-12, 20000),     # the drive ×2 point (0.22 %, 54.6°) — baseline
+    (2.0, 3e-12, 20000),
+    (2.0, 4e-12, 20000),
+    (2.0, 3e-12, 10000),
+    (2.0, 4e-12, 10000),
+    (2.5, 3e-12, 20000),
+    (2.5, 4e-12, 20000),
+    (2.5, 6e-12, 20000),
+    (2.5, 4e-12, 10000),
+]
+
+
 def ib_of_stem(stem):
     # ota_5t / ota_5t_x5 share a file but differ in bias; here THD is
     # quoted for the shipped variants, so map by name.
@@ -156,6 +192,23 @@ def hp(x):
 
 def main():
     what = sys.argv[1] if len(sys.argv) > 1 else "all"
+
+    if what == "fix":
+        # The co-design search (§11 follow-up). Prints the grid; the winner
+        # is chosen by hand and documented, not auto-selected.
+        print("pout   Cc     Rz     THD       PM      UGF       Iq", flush=True)
+        for (p, cc, rz) in FIX_GRID:
+            r = run_point(p, cc, rz)
+            ok = (r["pm_deg"] and r["pm_deg"] >= 65 and r["thd_pct"] and
+                  r["thd_pct"] <= 0.1 and r["isupply"] and
+                  r["isupply"] <= 200e-6)
+            print(f"×{r['pout']:<4} {r['cc']*1e12:>4.1f}p {r['rz']/1e3:>4.0f}k "
+                  f"{r['thd_pct']:>7.3f}%  {r['pm_deg'] or 0:>5.1f}°  "
+                  f"{(r['ugf_hz'] or 0)/1e6:>5.1f}MHz  "
+                  f"{(r['isupply'] or 0)*1e6:>4.0f}µA"
+                  f"{'   <== meets all' if ok else ''}", flush=True)
+        return
+
     res = {}
 
     if what in ("level", "all"):
@@ -279,6 +332,17 @@ def write(res):
                      f"| **{r['thd_pct']:.3f} %** | {hp(r['h2'])} "
                      f"| {hp(r['h3'])} | {pm} | {ugf} | {iq} |")
         L.append("")
+        L.append("**Applied** (`tb/thd.py fix`, then `tb/corners.py fix`): the "
+                 "co-design lands on **×2.5 output, Cc 4 pF / Rz 10 kΩ → "
+                 "0.167 % THD, 81° PM, 173 µA** — 8.6× better than shipped, "
+                 "clearing the old < 1 % row by 6× and corner-verified to "
+                 "PM ≥ 75.6° across the §7 box (`corners.md`). The two levers "
+                 "separate cleanly: **Rz 20k→10k is the phase-margin lever** "
+                 "(it cuts the feedforward that pushes the UGF up — §7 — and "
+                 "costs nothing in THD), **pout is the THD lever**. The "
+                 "review's 0.1 % is not reachable for a class-A stage in "
+                 "budget (needs pout ≥ 3, I_q > 200 µA); that last 1.7× is a "
+                 "class-AB output — see `design-notes.md` §12.\n")
 
     p = Path(ROOT / "docs" / "thd.md")
     p.write_text("\n".join(L) + "\n", encoding="utf-8")

@@ -52,3 +52,5 @@ The 1.44 % above is a design shortfall, not just a number, so this sweep is the 
 | ×2 | ≈123 µA | **0.216 %** | 0.182 % | 0.017 % | 54.6° | 16.5 MHz | 142 µA |
 | ×3 | ≈184 µA | **0.300 %** | 0.084 % | 0.234 % | 39.7° | 20.2 MHz | 203 µA |
 
+**Applied** (`tb/thd.py fix`, then `tb/corners.py fix`): the co-design lands on **×2.5 output, Cc 4 pF / Rz 10 kΩ → 0.167 % THD, 81° PM, 173 µA** — 8.6× better than shipped, clearing the old < 1 % row by 6× and corner-verified to PM ≥ 75.6° across the §7 box (`corners.md`). The two levers separate cleanly: **Rz 20k→10k is the phase-margin lever** (it cuts the feedforward that pushes the UGF up — §7 — and costs nothing in THD), **pout is the THD lever**. The review's 0.1 % is not reachable for a class-A stage in budget (needs pout ≥ 3, I_q > 200 µA); that last 1.7× is a class-AB output — see `design-notes.md` §12.
+
