@@ -83,3 +83,7 @@ if __name__ == "__main__":
     render("pmos_mirror", "pmos_mirror — common-centroid PMOS current mirror "
            "(A=xm3 diode, B=xm4)\nDRC-clean + LVS MATCH to two W=10 PMOS",
            list(zip(xs4p, ["A", "B", "B", "A"])), finger_y=8.0, nets=True)
+    render("ota5t_core", "ota5t_core — the whole 5T OTA, assembled and routed\n"
+           "PMOS mirror over NMOS input pair over tail/bias; shared nodes "
+           "(n1/vout/tail) on met1+li, input gates on li\n"
+           "DRC-clean + LVS MATCH to all six transistors", nets=True)

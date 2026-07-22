@@ -204,6 +204,125 @@ def build_met2_test():
     D.strap(c, 2.5, 0.2, 2.7, 3.0, layer=D.MET1)      # met1 wire it crosses
     _write(c)
 
+    build_ota5t_core()
+
+
+def build_ota5t_core():
+    """The whole 5T OTA (xmb/xm0/xm1/xm2/xm3/xm4) assembled and routed -- the
+    piece the three sub-blocks were building toward. Three common-centroid nf=4
+    strips STACKED: tail/bias (NMOS, bottom) -> input pair (NMOS, middle) ->
+    mirror load (PMOS, top). The scaled W=10 devices match the sub-block LVS
+    refs; bulk stays a port (VNB substrate, VNW nwell) this milestone.
+
+    Routing plan (every crossing is on a different layer, so nothing shorts):
+      * upper gap (input<->mirror): n1 on met1 at the OUTER columns (col0/col4),
+        vout on li at the CENTRE (col2) -- different x AND layer, never touch;
+        the input gates are kept OUT of this gap entirely.
+      * input gates escape DOWNWARD (poly_contact_dn) and go out on MET2 -- vinp
+        left, vinn right -- crossing the li tail routing on a different layer.
+      * lower gap (tail<->input): tail on li (input sources down, xm0 drain up).
+      * diode nodes vb (tail) and n1 (mirror) use the proven mirror idiom (gates
+        + A-drains to one strap, sources to the rail on the other layer).
+    """
+    c = gdstk.Cell("ota5t_core")
+    XC = 6.0                                   # shared centre x (col2 of each)
+
+    def met1_drop(x, y0s, Ws, y_end):
+        """Bring a S/D column out on met1. The li->met1 via lands on a real S/D
+        licon stud INSIDE the strip (the standard stacked source contact), so it
+        is guaranteed to sit on the device li -- the device li stops ~0.27um
+        short of the nominal strip edge, so a via placed at the edge would float.
+        met1 then runs from the via out to y_end, crossing any foreign li strap a
+        layer above."""
+        if y_end > y0s + Ws / 2:                     # up: stud near the top edge
+            via_y = y0s + 0.06 + 0.34 * int((Ws - 0.56) / 0.34)
+        else:                                        # down: first stud
+            via_y = y0s + 0.06 + 0.34
+        D.strap(c, x - 0.165, via_y - 0.2, x + 0.165, via_y + 0.2, layer=D.LI)
+        D.via(c, x, via_y)
+        D.strap(c, x - 0.14, min(via_y, y_end), x + 0.14, max(via_y, y_end),
+                layer=D.MET1)
+
+    # ---- tail/bias group: NMOS L=1 nf=4, xmb diode + xm0 (bottom) ----------
+    x0T, y0T = XC - 2.725, 2.0
+    T = D.fet(c, x0T, y0T, W=5.0, L=1.0, nf=4, kind="n")
+    tcol, tg = T["sds"], T["gates"]
+    # VSS rail (met1); sources col1/col3 drop to it on met1 so the VB li strap
+    # can cross them a layer below
+    rail_vss = 0.6
+    for x in (tcol[1], tcol[3]):
+        met1_drop(x, y0T, 5.0, rail_vss)
+    D.strap(c, tcol[1] - 0.14, rail_vss - 0.15, tcol[3] + 0.14, rail_vss + 0.15,
+            layer=D.MET1)
+    D.label(c, "VSS", tcol[1], rail_vss, layer=D.MET1LBL)
+    # VB (diode node): gates + col0/col4 to a LOW li strap, exit left. It passes
+    # under the strip and over the VSS met1 -- both a layer away.
+    vb_y = 1.4
+    for x in tg:
+        D.poly_contact_dn(c, x, 1.0, y0T - 0.13, down=(y0T - 0.13) - vb_y)
+    for x in (tcol[0], tcol[4]):
+        D.strap(c, x - 0.085, vb_y, x + 0.085, y0T, layer=D.LI)
+    D.strap(c, x0T - 0.35, vb_y - 0.085, tcol[4] + 0.085, vb_y + 0.085, layer=D.LI)
+    D.label(c, "VB", x0T - 0.25, vb_y)
+    # TAIL (xm0 drain, col2) up to the tail bar on met1
+    tail_bar = 9.3
+    met1_drop(tcol[2], y0T, 5.0, tail_bar)
+
+    # ---- input pair group: NMOS L=0.5 nf=4, xm1/xm2 (middle) --------------
+    x0I, y0I = XC - 1.725, 12.0
+    I = D.fet(c, x0I, y0I, W=5.0, L=0.5, nf=4, kind="n")
+    icol, ig = I["sds"], I["gates"]
+    itop, ibot = y0I + 5.0, y0I - 0.13
+    # TAIL: sources col1/col3 down to the tail bar on met1; the bar ties xm0 too
+    for x in (icol[1], icol[3]):
+        met1_drop(x, y0I, 5.0, tail_bar)
+    D.strap(c, min(icol[1], tcol[2]) - 0.14, tail_bar - 0.15,
+            max(icol[3], tcol[2]) + 0.14, tail_bar + 0.15, layer=D.MET1)
+    D.label(c, "TAIL", icol[2], tail_bar, layer=D.MET1LBL)
+    # input gates escape DOWN as pure-li straps at two heights (vinp wide/left,
+    # vinn narrow/right); they cross the tail met1 a layer above
+    for x in (ig[0], ig[3]):                                     # VINP
+        D.poly_contact_dn(c, x, 0.5, ibot, down=ibot - 11.2)
+    D.strap(c, x0I - 0.95, 11.2 - 0.085, ig[3] + 0.165, 11.2 + 0.085, layer=D.LI)
+    D.label(c, "VINP", x0I - 0.85, 11.2)
+    for x in (ig[1], ig[2]):                                     # VINN
+        D.poly_contact_dn(c, x, 0.5, ibot, down=ibot - 10.5)
+    D.strap(c, ig[1] - 0.165, 10.5 - 0.085, x0I + I["totx"] + 0.95, 10.5 + 0.085,
+            layer=D.LI)
+    D.label(c, "VINN", x0I + I["totx"] + 0.85, 10.5)
+    # n1 (A drains col0/col4) up on met1; vout (B drain col2) up on li
+    n1_bar = 21.3
+    for x in (icol[0], icol[4]):
+        met1_drop(x, y0I, 5.0, n1_bar)
+    D.strap(c, icol[2] - 0.085, itop - 0.5, icol[2] + 0.085, 22.0, layer=D.LI)  # vout
+
+    # ---- mirror load group: PMOS L=1 nf=4, xm3 diode + xm4 (top) ----------
+    x0M, y0M = XC - 2.725, 22.0
+    M = D.fet(c, x0M, y0M, W=5.0, L=1.0, nf=4, kind="p")
+    mcol, mg = M["sds"], M["gates"]
+    mtop = y0M + 5.0
+    D.label(c, "VNW", x0M + M["totx"] / 2, mtop + 0.25)          # nwell port
+    # VDD rail (met1) above; sources col1/col3 up to it
+    rail_vdd = 28.4
+    for x in (mcol[1], mcol[3]):
+        met1_drop(x, y0M, 5.0, rail_vdd)
+    D.strap(c, mcol[1] - 0.14, rail_vdd - 0.15, mcol[3] + 0.14, rail_vdd + 0.15,
+            layer=D.MET1)
+    D.label(c, "VDD", mcol[1], rail_vdd, layer=D.MET1LBL)
+    # N1: gates (poly down) + col0/col4 (met1 down) all to the met1 n1 bar
+    for x in mg:
+        _gx, yc = D.poly_contact_dn(c, x, 1.0, y0M - 0.13, down=(y0M - 0.13) - 21.5)
+        D.via(c, x, yc)
+    for x in (mcol[0], mcol[4]):
+        met1_drop(x, y0M, 5.0, n1_bar)
+    D.strap(c, mcol[0] - 0.14, n1_bar - 0.15, mcol[4] + 0.14, n1_bar + 0.15,
+            layer=D.MET1)
+    D.label(c, "N1", mcol[0], n1_bar, layer=D.MET1LBL)
+    # VOUT (B drain col2) down on li to meet the input's vout li
+    D.strap(c, mcol[2] - 0.085, 21.0, mcol[2] + 0.085, y0M + 0.4, layer=D.LI)
+    D.label(c, "VOUT", mcol[2], 21.5)
+    _write(c)
+
 
 if __name__ == "__main__":
     build()

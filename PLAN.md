@@ -119,10 +119,22 @@ Console roles (why each block exists):
       a via at each end, that strap crossing a met1 wire of another net —
       **DRC-clean**). The second metal the assembled core needs (each sub-block
       fits on li+met1, but the core's ~7 nets exit in every direction).
-- [ ] The **5T core**: place the three sub-blocks (mirror over input pair over
-      tail), route the shared nodes (n1, vout, tail) on met1 + the input gates
-      out on met2; then the second stage + bias generator, then
-      **post-extraction re-simulation** — the number that decides the silicon.
+- [x] **5T core assembled + LVS-matched** (`ota5t_core`, figure
+      `docs/img/layout_ota5t_core.png`): the three sub-blocks placed as stacked
+      common-centroid strips (mirror over input over tail) and routed into the
+      whole amplifier — extracts to **exactly the six transistors of `ota_5t.sp`**
+      (n1/tail internal, vnb/vnw bulk ports), **DRC-clean + LVS MATCH**. n1 on
+      the outer met1 columns, vout on a central li riser (never meet), input
+      gates out on li at two heights crossing the met1 tail a layer below.
+      LESSON: a standalone-clean sub-block does NOT compose for free — the input
+      pair's routing had to be redrawn (drains up, gates down) to face the
+      neighbours it connects to; and every S/D must leave on a via landing on a
+      real licon stud *inside* the strip (device li stops ~0.27 µm short of the
+      nominal edge → an edge via floats; the first attempt lost VDD/VOUT/tail to
+      exactly that). `layout/verify.py` green: 9 cells DRC-clean, 6 LVS-matched.
+- [ ] The **second stage** (`xm5`/`xm6` + Cc/Rz), the **bias generator** layout
+      (`biasgen.sp`), then rail-tie guard rings (bulk ports → real body ties),
+      then **post-extraction re-simulation** — the number that decides the silicon.
 
 ## Phase 3 — comparator
 

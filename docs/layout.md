@@ -105,30 +105,58 @@ local — so nothing has to cross. It extracts to two W=10 PMOS, xm3 diode-tied 
 | `pmos_mirror` (A B B A routed PMOS mirror load) | **CLEAN** | **MATCH** |
 | `tail_bias` (NMOS mirror: tail source + bias diode) | **CLEAN** | **MATCH** |
 | `met2_test` (met1↔met2 via + met2-over-met1 crossing) | **CLEAN** | — (layer check) |
+| `ota5t_core` (whole 5T OTA: 6 devices, 3 strips, routed) | **CLEAN** | **MATCH** |
 
 **All three sub-blocks of the 5T OTA — the NMOS input pair, the PMOS mirror
-load, and the NMOS tail/bias — are now laid out and verified as the right
-circuit.** Lessons banked: mirroring the proven `stdcells` dimensions gets a
-device clean first try; a li-connected tap ring beats stacking mcon on licon
-(74 `ct.2`); and once the net *topology* is right (S/D and gates routed to
-layers/levels that can't collide) LVS matches first try — every routed cell's
-only DRC fixes were sub-0.2 µm connectivity near-misses, never topology.
+load, and the NMOS tail/bias — are laid out and verified as the right circuit,
+and now so is the whole amplifier assembled from them.** Lessons banked:
+mirroring the proven `stdcells` dimensions gets a device clean first try; a
+li-connected tap ring beats stacking mcon on licon (74 `ct.2`); and once the net
+*topology* is right (S/D and gates routed to layers/levels that can't collide)
+LVS matches first try — every routed cell's only DRC fixes were sub-0.2 µm
+connectivity near-misses, never topology.
 
-## The next step, and the layer it needs
+## The 5T core, assembled and LVS-matched
 
-Assembling the three sub-blocks into the 5T core surfaced an honest constraint:
-each block fits on two routing layers (li + met1) because its ≤ 5 nets exit in a
-few clean directions, but the *assembled* core has ~7 nets (vinp, vinn, n1,
-vout, tail, vb, plus the vdd/vss rails) leaving in every direction at once —
-that needs a **second metal**. So **met2 is now added to `device.py` and
-validated**: `via2()` builds a met1↔met2 via stack, and `met2_test` — two met1
-pads joined by a met2 strap through a via at each end, with that strap crossing
-*over* a met1 wire of another net — is **DRC-clean**, confirming the via size,
-met2 width/spacing/enclosure, and (the point of the layer) that met2 crosses
-met1 without a short.
+![The whole 5T OTA laid out: three common-centroid strips stacked — PMOS mirror on top, NMOS input pair in the middle, NMOS tail/bias at the bottom — with n1 and tail routed on met1 verticals, vout on a central li riser, and the input gates taken out on li to the sides. DRC-clean and LVS-matched to all six transistors.](img/layout_ota5t_core.png)
 
-Next: **the 5T core** — place the mirror above the input pair above the tail,
-route the shared nodes (n1, vout, tail) on met1 and take the input gates out on
-met2; then the second stage and the bias generator, and finally
-**post-extraction re-simulation**, the number that actually decides whether the
-silicon works.
+`ota5t_core` places the three sub-blocks as **stacked common-centroid strips**
+(mirror over input pair over tail) and routes the amplifier between them — the
+piece the whole layout leg was building toward. It extracts to **exactly the six
+transistors of `ota_5t.sp`** (bias diode, tail, input pair, mirror load) with
+the internal nodes `n1` and `tail` and bulk ports `vnb`/`vnw` — **DRC-clean +
+LVS MATCH**. The scaled W = 10 devices match the sub-block refs; the value here
+is that the *assembly routing* is proven, not the devices (those were done).
+
+The routing is where the congestion lives — the core has more distinct nets than
+any sub-block. Three ideas keep every crossing on a different layer:
+
+- **`n1` and `vout` never meet.** `n1` (the input A-drains and the whole mirror
+  diode node) rides met1 up the **outer** columns; `vout` rides li up the
+  **centre** column. Different x *and* different layer.
+- **The input gates escape downward on li**, at two heights (vinp wide, vinn
+  narrow), crossing the `tail` net — which is put on **met1** exactly where they
+  cross — a layer below. This keeps the whole upper gap free for `n1`/`vout`.
+- **Every source/drain leaves on met1 through a via that lands on a real licon
+  stud *inside* the strip.** The device li stops ~0.27 µm short of the nominal
+  strip edge, so a via at the edge floats — the first assembly attempt extracted
+  with VDD, VOUT and the tail column disconnected for exactly this reason. The
+  stacked source-contact (diff → licon → li → mcon → met1, on the stud) is the
+  standard fix and is guaranteed to land on device li.
+
+Lesson worth keeping: **a sub-block that is DRC+LVS-clean standalone does not
+compose for free.** Each sub-block routed all its S/D one way (e.g. all down)
+because it had a free side; stacked into the core, the same nets have to exit
+*toward the neighbour they connect to*, so the input pair's routing had to be
+redrawn (drains up, gates down) rather than instanced. The centroid *geometry*
+carried over; the *routing* did not.
+
+## What's next
+
+The core is the DC heart of the two-stage Miller amplifier. From here:
+**the second stage** (`xm5`/`xm6` + the Cc/Rz compensation the THD fix sized),
+**the bias generator** layout (the constant-gm cell `biasgen.sp`), and then
+**post-extraction re-simulation** — running the benches again on the parasitic-
+extracted netlist, the number that actually decides whether the silicon works.
+Rail-tie guard rings (substrate → VSS, nwell → VDD) replace the bulk *ports*
+with real body ties at that stage too.

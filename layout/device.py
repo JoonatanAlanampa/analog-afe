@@ -111,6 +111,20 @@ def poly_contact(cell, xg, L, y_top, up=0.45):
     return xg, yc
 
 
+def poly_contact_dn(cell, xg, L, y_bot, down=0.45):
+    """Like `poly_contact`, but the gate terminal drops BELOW the device (riser
+    from the poly end `y_bot` downward by `down`). The core takes the input-pair
+    gates out on the bottom side so the upper gap is free for n1/vout. Returns
+    the li-patch centre."""
+    yc = y_bot - down
+    _r(cell, POLY, xg - L / 2, yc - 0.085, xg + L / 2, y_bot + 0.02)   # riser
+    _r(cell, POLY, xg - 0.165, yc - 0.165, xg + 0.165, yc + 0.165)     # pad
+    _r(cell, NPC, xg - 0.185, yc - 0.185, xg + 0.185, yc + 0.185)
+    _r(cell, LICON, xg - 0.085, yc - 0.085, xg + 0.085, yc + 0.085)
+    _r(cell, LI, xg - 0.165, yc - 0.165, xg + 0.165, yc + 0.165)
+    return xg, yc
+
+
 def strap(cell, x0, y0, x1, y1, layer=LI):
     """A routing rectangle (li by default). Min li width 0.17 -- callers keep
     the thinner dimension >= 0.17."""

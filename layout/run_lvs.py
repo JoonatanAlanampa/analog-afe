@@ -59,6 +59,18 @@ Mb VB VB VSS VNB sky130_fd_pr__nfet_01v8 L=1u W=10u
 M0 TAIL VB VSS VNB sky130_fd_pr__nfet_01v8 L=1u W=10u
 .ends
 """,
+    # the whole 5T OTA: bias diode + tail + input pair + PMOS mirror load.
+    # Internal nets n1/tail; bulks are ports (VNB substrate, VNW nwell). The
+    # scaled W=10 devices match the sub-block refs above.
+    "ota5t_core": """.subckt ota5t_core vinp vinn vout vb vdd vss vnb vnw
+Mb vb vb vss vnb sky130_fd_pr__nfet_01v8 L=1u W=10u
+M0 tail vb vss vnb sky130_fd_pr__nfet_01v8 L=1u W=10u
+M1 n1 vinp tail vnb sky130_fd_pr__nfet_01v8 L=0.5u W=10u
+M2 vout vinn tail vnb sky130_fd_pr__nfet_01v8 L=0.5u W=10u
+M3 n1 n1 vdd vnw sky130_fd_pr__pfet_01v8 L=1u W=10u
+M4 vout n1 vdd vnw sky130_fd_pr__pfet_01v8 L=1u W=10u
+.ends
+""",
 }
 
 
