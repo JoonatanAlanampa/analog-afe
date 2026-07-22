@@ -83,13 +83,24 @@ Console roles (why each block exists):
 - [x] **O1 resolved** (by the topology review): 3.3 V VAPWR available but not
       taken; no separate analog domain; the pad + ESD *model* is a phase-2 item.
 
-## Phase 2 — layout
+## Phase 2 — layout (KICKOFF DONE 2026-07-22)
 
-- [ ] Reuse the `stdcells` toolchain (gdstk + official KLayout decks +
-      magic views) for analog layout: common-centroid input pair,
-      dummy devices, guard rings, matched routing
-- [ ] DRC + LVS + post-extraction re-simulation. Post-layout is where
-      analog designs go to die; budget for it accordingly.
+- [x] **Flow stood up** (`layout/`, `docs/layout.md`): gdstk device
+      primitives (`device.py`) → GDS → KLayout DRC (`run_drc.py`,
+      `sky130A_mr.drc`, reusing the `stdcells` KLayout + deck) → layer-coloured
+      PNG (`plot.py`). Layer map + spacings mirrored from the DRC-clean
+      `stdcells` cells, so devices are clean by construction.
+- [x] **First devices DRC-clean:** `nfet_test` (W 5 / L 0.5 / 2-finger) and
+      **`cc_pair` — the common-centroid input pair** (D A B B A D, A/B centroids
+      coincident, dummies + p-tap guard ring). Both pass the deck. Lesson: the
+      guard ring's mcon-on-licon stack drew 74 `ct.2`; a li-connected tap ring
+      is cleaner and sufficient.
+- [ ] Gate straps + source/drain routing (make the pair a connected 2-device
+      network), then **LVS** (extract → match schematic; DRC proves geometry,
+      only LVS proves the circuit) — reuse the `stdcells` netgen/KLayout setup.
+- [ ] Full OTA (5T core + second stage) + the bias generator, then
+      **post-extraction re-simulation** — the number that decides the silicon.
+      Post-layout is where analog designs go to die; budget for it accordingly.
 
 ## Phase 3 — comparator
 

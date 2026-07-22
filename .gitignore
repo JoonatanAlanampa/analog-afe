@@ -2,3 +2,5 @@
 out/
 __pycache__/
 *.pyc
+# layout artefacts — regenerate with `python layout/build.py`
+layout/out/

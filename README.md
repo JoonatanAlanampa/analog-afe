@@ -25,8 +25,9 @@ THD was found **failing** at the 1 V pp spec swing (1.44 %) and is now
 **8.6× better** ([see below](#the-gap-that-measurement-found--thd)) — the ICMR
 bench pinned the residual-distortion floor to the input pair (not the output),
 and a **constant-gm bias generator with a verified start-up** now replaces the
-ideal current source ([`docs/biasgen.md`](docs/biasgen.md)). Next: **phase 2,
-layout**.
+ideal current source ([`docs/biasgen.md`](docs/biasgen.md)). **Phase 2 (layout)
+is now kicked off** — the flow is stood up and a common-centroid input pair is
+drawn DRC-clean ([`docs/layout.md`](docs/layout.md)).
 
 ## The block under design
 
@@ -213,13 +214,25 @@ already ~35 dB quieter in distortion than 8-bit console audio can use. (CMRR
 itself is 68.7 dB, flat across the band — a first-stage property the output
 fix leaves untouched.)
 
-## Next
+## Phase 2 — layout (kicked off)
 
-**Phase 2 — layout.** Common-centroid input pair, dummy devices, guard rings,
-matched routing, and post-extraction re-simulation on the `stdcells`
-toolchain — post-layout is where analog designs go to die, so it gets
-budgeted for accordingly. Two carried-forward design items feed into it: swap
-the bias generator's ideal R for a real xhigh_po poly resistor (the
-reference's true PVT floor), and a wider-ICMR input (rail-to-rail /
-complementary pair) if THD below 0.1 % at the full swing is ever wanted. Full
-roadmap in [`PLAN.md`](PLAN.md).
+Post-layout is where analog designs go to die (matching, parasitics, wells),
+so phase 2 starts with the hardest-to-get-right pieces. The flow — gdstk
+device primitives → GDS → KLayout DRC (`sky130A_mr` deck) → rendered PNG — is
+stood up in [`layout/`](layout/), reusing the `stdcells` KLayout + deck, and
+the two structures that matter most are drawn **DRC-clean**:
+
+![Common-centroid NMOS input pair (D A B B A D) with a p-tap guard ring, DRC-clean on the sky130A_mr deck.](docs/img/layout_cc_pair.png)
+
+The input pair is drawn **common-centroid** — six interleaved fingers D A B B A D
+so devices A and B share a centroid and a linear process gradient cancels to
+first order (the matching a side-by-side layout can't get) — with dummy end
+fingers and a p-tap guard ring. Details and layer-by-layer notes in
+[`docs/layout.md`](docs/layout.md).
+
+**Next:** gate + source/drain routing → LVS → the full OTA + bias generator →
+post-extraction re-simulation. Two design items also carry in: the bias
+generator's real poly resistor is a post-layout Monte-Carlo signoff item, and
+a wider-ICMR input (rail-to-rail / complementary pair) is the path to THD
+below 0.1 % at the full swing if ever wanted. Full roadmap in
+[`PLAN.md`](PLAN.md).
