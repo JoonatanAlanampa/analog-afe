@@ -20,8 +20,10 @@ DIFF = (65, 20)
 NSDM = (93, 44)
 PSDM = (94, 20)
 POLY = (66, 20)
+NPC = (95, 20)
 LICON = (66, 44)
 LI = (67, 20)
+LILBL = (67, 5)
 MCON = (67, 44)
 MET1 = (68, 20)
 MET1LBL = (68, 5)
@@ -85,6 +87,31 @@ def fet(cell, x0, y0, W, L, nf=1, kind="n"):
         _licon_col(cell, x0 + xc, y0, W)
     return dict(totx=totx, W=W, gates=[x0 + g for g in gates],
                 sds=[x0 + s for s in sds])
+
+
+def label(cell, name, x, y, layer=LILBL):
+    cell.add(gdstk.Label(name, (round(x, 3), round(y, 3)),
+                         layer=layer[0], texttype=layer[1]))
+
+
+def poly_contact(cell, xg, L, y_top, up=0.45):
+    """Extend a gate poly (centre xg, width L, ending at y_top) upward by `up`
+    and cap it with a poly pad + npc + licon + li -- the gate terminal. Sizes
+    mirror the clean stdcells pad (poly/li enclose the licon by 0.08, npc by
+    0.10). Returns the li-patch centre for a label or a strap."""
+    yc = y_top + up
+    _r(cell, POLY, xg - L / 2, y_top - 0.02, xg + L / 2, yc + 0.085)   # riser
+    _r(cell, POLY, xg - 0.165, yc - 0.165, xg + 0.165, yc + 0.165)     # pad
+    _r(cell, NPC, xg - 0.185, yc - 0.185, xg + 0.185, yc + 0.185)
+    _r(cell, LICON, xg - 0.085, yc - 0.085, xg + 0.085, yc + 0.085)
+    _r(cell, LI, xg - 0.165, yc - 0.165, xg + 0.165, yc + 0.165)
+    return xg, yc
+
+
+def strap(cell, x0, y0, x1, y1, layer=LI):
+    """A routing rectangle (li by default). Min li width 0.17 -- callers keep
+    the thinner dimension >= 0.17."""
+    _r(cell, layer, min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1))
 
 
 def guard_ring(cell, x0, y0, x1, y1, w=0.5, kind="p"):

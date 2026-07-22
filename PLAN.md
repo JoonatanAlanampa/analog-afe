@@ -95,9 +95,14 @@ Console roles (why each block exists):
       coincident, dummies + p-tap guard ring). Both pass the deck. Lesson: the
       guard ring's mcon-on-licon stack drew 74 `ct.2`; a li-connected tap ring
       is cleaner and sufficient.
-- [ ] Gate straps + source/drain routing (make the pair a connected 2-device
-      network), then **LVS** (extract → match schematic; DRC proves geometry,
-      only LVS proves the circuit) — reuse the `stdcells` netgen/KLayout setup.
+- [x] **LVS flow proven** (`layout/run_lvs.py`, KLayout `sky130.lvs` patched for
+      device-class case): `nfet_lvs` — a single finger with a gate contact
+      (poly→npc→licon→li) + S/G/D labels, bulk as a port — extracts to exactly
+      `M0 D G S B nfet_01v8 L=0.5u W=5u`, **LVS MATCH**. DRC proves geometry;
+      this proves the circuit.
+- [ ] Route the common-centroid pair into a connected network (the tail, two
+      drains and two gates need met1 straps that cross without shorting — a
+      second routing layer) and LVS it.
 - [ ] Full OTA (5T core + second stage) + the bias generator, then
       **post-extraction re-simulation** — the number that decides the silicon.
       Post-layout is where analog designs go to die; budget for it accordingly.

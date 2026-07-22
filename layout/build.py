@@ -27,6 +27,18 @@ def build():
     D.fet(c, 0.0, 0.0, W=5.0, L=0.5, nf=2, kind="n")
     _write(c)
 
+    # nfet_lvs: single-finger device wired for LVS -- gate contact + S/G/D
+    # labels. Bulk is a port (no tap; the extractor exports the untapped
+    # p-substrate as one net, as the stdcells cells do).
+    nl = gdstk.Cell("nfet_lvs")
+    fp = D.fet(nl, 0.0, 0.0, W=5.0, L=0.5, nf=1, kind="n")
+    src, drn = fp["sds"][0], fp["sds"][1]
+    gx, _gc = D.poly_contact(nl, fp["gates"][0], 0.5, fp["W"] + 0.13)
+    D.label(nl, "S", src, fp["W"] / 2)
+    D.label(nl, "D", drn, fp["W"] / 2)
+    D.label(nl, "G", gx, fp["W"] + 0.13 + 0.45)
+    _write(nl)
+
     # common-centroid input pair: 6 fingers D A B B A D (A/B centroids coincide
     # at finger 3.5, the classic 1-D common-centroid), wrapped in a p-tap guard
     # ring. Gate straps + S/D routing (for LVS) are the next step; this proves
