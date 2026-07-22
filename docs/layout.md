@@ -82,23 +82,38 @@ never cross; likewise `VA` runs on li and `VB` on met1, crossing only where
 they are on different layers. It extracts to exactly two W=10 NMOS with a shared
 source — **LVS MATCH**.
 
+## The other matched pair — the PMOS mirror load
+
+`pmos_mirror` is the input pair's counterpart (xm3/xm4), and it brings in
+everything the NMOS work didn't touch: a **PMOS** device, its **nwell**, and an
+**n-tap guard ring** to tie the well (proven first on the single `pfet_lvs`).
+Same A B B A common-centroid, but a *mirror*: all four gates tie to `N1` and
+xm3 is **diode-connected** (its gate = its drain = N1). That diode tie actually
+makes the routing *tidier* than the differential pair — N1 (every gate plus the
+A drains) all runs UP to one li strap, VDD (the sources) runs DOWN, VOUT stays
+local — so nothing has to cross. It extracts to two W=10 PMOS, xm3 diode-tied —
+**LVS MATCH**, DRC-clean on the first run.
+
 ## Status and what's next
 
 | cell | DRC (`sky130A_mr`) | LVS (`sky130.lvs`) |
 |---|---|---|
-| `nfet_test` (W 5 / L 0.5 / 2 fingers) | **CLEAN** | — |
 | `nfet_lvs` (1 finger, gate contact + S/G/D) | **CLEAN** | **MATCH** |
+| `pfet_lvs` (PMOS in nwell + n-tap guard ring) | **CLEAN** | **MATCH** |
 | `cc_pair` (D A B B A D + p-tap guard ring) | **CLEAN** | — (matching-structure demo) |
-| `cc_diff` (A B B A, routed differential pair) | **CLEAN** | **MATCH** |
+| `cc_diff` (A B B A routed NMOS input pair) | **CLEAN** | **MATCH** |
+| `pmos_mirror` (A B B A routed PMOS mirror load) | **CLEAN** | **MATCH** |
 
-Lessons banked: mirroring the proven `stdcells` dimensions gets a device clean
-on the first try rather than by iteration; the guard ring's first cut stacked
-mcon on licon and drew 74 `ct.2` (a li-connected tap ring is cleaner); and the
-routed pair's only DRC fixes were connectivity near-misses (risers that didn't
-quite overlap the device li, a via poking below its li) — the net *topology*
-was right, and LVS matched first try.
+Both of the OTA's matching-critical pairs — the NMOS input pair and the PMOS
+mirror load — are now laid out **and** verified as the right circuit. Lessons
+banked: mirroring the proven `stdcells` dimensions gets a device clean first
+try; a li-connected tap ring beats stacking mcon on licon (74 `ct.2`); and once
+the net *topology* is right (S/D and gates routed to layers/levels that can't
+collide) LVS matches first try — every routed cell's only DRC fixes were
+sub-0.2 µm connectivity near-misses, never topology.
 
-Next: **fold the two into one input-stage cell** (routed like `cc_diff`, but
-with `cc_pair`'s dummy fingers and guard ring), then the rest of the OTA (5T
-core + second stage) and the bias generator; and finally **post-extraction
-re-simulation**, the number that actually decides whether the silicon works.
+Next: **the 5T core** — place the input pair and the mirror together, add the
+tail current source and the bias diode, and route the internal nodes (n1, tail,
+vout); then the second stage and the bias generator; and finally
+**post-extraction re-simulation**, the number that actually decides whether the
+silicon works.

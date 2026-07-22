@@ -78,3 +78,8 @@ if __name__ == "__main__":
     render("cc_diff", "cc_diff — common-centroid input pair, ROUTED "
            "(A B B A)\nDRC-clean + LVS MATCH to two W=10 NMOS",
            list(zip(xs4, ["A", "B", "B", "A"])), finger_y=8.4, nets=True)
+    Lp = 1.0
+    xs4p = [2.0 + sd + Lp / 2 + i * (sd + Lp) for i in range(4)]
+    render("pmos_mirror", "pmos_mirror — common-centroid PMOS current mirror "
+           "(A=xm3 diode, B=xm4)\nDRC-clean + LVS MATCH to two W=10 PMOS",
+           list(zip(xs4p, ["A", "B", "B", "A"])), finger_y=8.0, nets=True)

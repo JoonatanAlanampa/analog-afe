@@ -34,11 +34,23 @@ REF = {
 M0 D G S B sky130_fd_pr__nfet_01v8 L=0.5u W=5u
 .ends
 """,
+    # PMOS: bulk is the nwell, tied to VDDN by the n-tap guard ring.
+    "pfet_lvs": """.subckt pfet_lvs S G D VDDN
+M0 D G S VDDN sky130_fd_pr__pfet_01v8 L=1u W=5u
+.ends
+""",
     # common-centroid differential pair: two W=10 (2x5 finger) NMOS, common
     # source (TAIL), gates VA/VB, drains OA/OB, shared bulk VNB.
     "cc_diff": """.subckt cc_diff VA VB OA OB TAIL VNB
 MA OA VA TAIL VNB sky130_fd_pr__nfet_01v8 L=0.5u W=10u
 MB OB VB TAIL VNB sky130_fd_pr__nfet_01v8 L=0.5u W=10u
+.ends
+""",
+    # PMOS current mirror: xm3 diode-connected (gate=drain=N1), xm4 mirrors it.
+    # Common gate N1, common source VDD, drains N1/VOUT. Floating nwell VNW.
+    "pmos_mirror": """.subckt pmos_mirror N1 VOUT VDD VNW
+M3 N1 N1 VDD VNW sky130_fd_pr__pfet_01v8 L=1u W=10u
+M4 VOUT N1 VDD VNW sky130_fd_pr__pfet_01v8 L=1u W=10u
 .ends
 """,
 }

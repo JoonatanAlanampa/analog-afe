@@ -39,6 +39,20 @@ def build():
     D.label(nl, "G", gx, fp["W"] + 0.13 + 0.45)
     _write(nl)
 
+    # pfet_lvs: a PMOS in an nwell tied by an n-tap guard ring -- the first
+    # p-device, exercising nwell + n-tap + psdm. Bulk = the well net (VDDN).
+    pl = gdstk.Cell("pfet_lvs")
+    W = 5.0
+    pf = D.fet(pl, 2.0, 2.0, W=W, L=1.0, nf=1, kind="p")
+    pgx, _ = D.poly_contact(pl, pf["gates"][0], 1.0, 2.0 + W + 0.13)
+    D.guard_ring(pl, 0.8, 0.8, 2.0 + pf["totx"] + 1.2, 2.0 + W + 1.2,
+                 w=0.5, kind="n")
+    D.label(pl, "S", pf["sds"][0], 2.0 + W / 2)
+    D.label(pl, "D", pf["sds"][1], 2.0 + W / 2)
+    D.label(pl, "G", pgx, 2.0 + W + 0.13 + 0.45)
+    D.label(pl, "VDDN", 1.05, 2.0 + W / 2)          # on the n-tap ring
+    _write(pl)
+
     # common-centroid input pair: 6 fingers D A B B A D (A/B centroids coincide
     # at finger 3.5, the classic 1-D common-centroid), wrapped in a p-tap guard
     # ring. Gate straps + S/D routing (for LVS) are the next step; this proves
@@ -105,6 +119,40 @@ def build_cc_diff():
     D.strap(c, g[1] - 0.14, vb_y - 0.15, g[2] + 0.14, vb_y + 0.15, layer=D.MET1)
     D.label(c, "VB", g[1], vb_y, layer=D.MET1LBL)
 
+    _write(c)
+
+    build_pmos_mirror()
+
+
+def build_pmos_mirror():
+    """The OTA's PMOS current-mirror load (xm3/xm4), common-centroid and
+    LVS-clean. Same A B B A interleave, but a MIRROR not a pair: all gates tie
+    to N1 and xm3 is diode-connected (its gate = its drain = N1). That diode
+    tie makes the routing tidy -- N1 (all gates + the A drains col0/col4) all
+    goes UP to one li strap, VDD (sources col1/col3) goes DOWN, VOUT (col2) is
+    local -- so nothing has to cross. nwell is a port (floating well)."""
+    c = gdstk.Cell("pmos_mirror")
+    y0, W, L = 2.0, 5.0, 1.0
+    fp = D.fet(c, 2.0, y0, W=W, L=L, nf=4, kind="p")
+    col, g = fp["sds"], fp["gates"]
+    ytop = y0 + W + 0.13
+    yin = y0 + 0.25
+
+    D.label(c, "VOUT", col[2], y0 + W / 2)          # B drain, local
+
+    vy = y0 - 0.55                                   # VDD: col1,col3 down
+    for x in (col[1], col[3]):
+        D.strap(c, x - 0.085, vy, x + 0.085, yin)
+    D.strap(c, col[1] - 0.085, vy, col[3] + 0.085, vy + 0.17)
+    D.label(c, "VDD", col[1], vy + 0.085)
+
+    ny = None                                        # N1: gates + col0,col4 up
+    for x in g:
+        _gx, ny = D.poly_contact(c, x, L, ytop, up=0.5)
+    for x in (col[0], col[4]):
+        D.strap(c, x - 0.085, y0 + W - 0.3, x + 0.085, ny + 0.085)
+    D.strap(c, col[0] - 0.085, ny - 0.085, col[4] + 0.085, ny + 0.085)
+    D.label(c, "N1", col[0], ny)
     _write(c)
 
 

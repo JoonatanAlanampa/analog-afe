@@ -105,10 +105,15 @@ Console roles (why each block exists):
       with a common source; five nets routed on li+met1 without shorts (S/D
       down, gates up; TAIL/OA and VA/VB cross only on different layers).
       DRC-clean, **LVS MATCH** — the input pair verified as the right circuit.
-- [ ] Fold routing + dummies + guard ring into one input-stage cell; then the
-      full OTA (5T core + second stage) + the bias generator, then
-      **post-extraction re-simulation** — the number that decides the silicon.
-      Post-layout is where analog designs go to die; budget for it accordingly.
+- [x] **PMOS capability + the mirror load** (`pfet_lvs`, `pmos_mirror`): a PMOS
+      in nwell tied by an n-tap guard ring (`pfet_lvs` **LVS MATCH**), then the
+      OTA's common-centroid current-mirror load (xm3 diode + xm4) — DRC-clean +
+      **LVS MATCH** to two W=10 PMOS (figure `docs/img/layout_pmos_mirror.png`).
+      Both of the OTA's matching pairs are now laid out AND circuit-verified.
+- [ ] The **5T core**: place the input pair + mirror + tail + bias diode and
+      route the internal nodes (n1/tail/vout); then the second stage + the bias
+      generator, then **post-extraction re-simulation** — the number that
+      decides the silicon. Post-layout is where analog designs go to die.
 
 ## Phase 3 — comparator
 

@@ -26,9 +26,10 @@ THD was found **failing** at the 1 V pp spec swing (1.44 %) and is now
 bench pinned the residual-distortion floor to the input pair (not the output),
 and a **constant-gm bias generator with a verified start-up** now replaces the
 ideal current source ([`docs/biasgen.md`](docs/biasgen.md)). **Phase 2 (layout)
-is under way** — the flow is stood up and the common-centroid input pair is
-drawn, **routed, and LVS-clean** (it extracts to exactly the two-transistor
-differential pair; [`docs/layout.md`](docs/layout.md)).
+is under way** — the flow is stood up and **both of the OTA's matching pairs**
+(the NMOS input pair and the PMOS mirror load) are drawn, routed, and
+**LVS-clean**, each extracting to exactly its schematic
+([`docs/layout.md`](docs/layout.md)).
 
 ## The block under design
 
@@ -234,11 +235,14 @@ with a common source:
 
 ![Routed common-centroid input pair (A B B A) — VA/VB gate straps, TAIL common source, OA/OB drains — DRC-clean and LVS-matched.](docs/img/layout_cc_diff.png)
 
-Details and the routing scheme in [`docs/layout.md`](docs/layout.md).
+The PMOS mirror load (xm3/xm4) is done the same way — common-centroid, in an
+nwell, DRC-clean and LVS-matched — so **both of the OTA's matching-critical
+pairs are now verified as the right circuit**. Details, both layer-by-layer
+figures, and the routing scheme in [`docs/layout.md`](docs/layout.md).
 
-**Next:** fold in dummies + the guard ring, then the full OTA + bias generator
-→ post-extraction re-simulation. Two design items also carry in: the bias
-generator's real poly resistor is a post-layout Monte-Carlo signoff item, and
-a wider-ICMR input (rail-to-rail / complementary pair) is the path to THD
-below 0.1 % at the full swing if ever wanted. Full roadmap in
-[`PLAN.md`](PLAN.md).
+**Next:** the 5T core (place the two pairs + tail + bias diode, route the
+internal nodes), then the second stage + bias generator → post-extraction
+re-simulation. Two design items also carry in: the bias generator's real poly
+resistor is a post-layout Monte-Carlo signoff item, and a wider-ICMR input
+(rail-to-rail / complementary pair) is the path to THD below 0.1 % at the full
+swing if ever wanted. Full roadmap in [`PLAN.md`](PLAN.md).
