@@ -15,16 +15,18 @@ digital chips (one
 and a hand-designed cartridge PCB. Analog is the part the digital chain
 never makes you think about: biasing, matching, noise, offset, headroom.
 
-**Status: phase 1.** Phase 0 (spec, harness, two candidates, four benches)
-is done and the topology **decision is made** — two-stage Miller for the
-audio buffer, the 5T OTA kept for the high-Z comparator/SAR blocks
+**Status: phase 1 complete.** Phase 0 (spec, harness, two candidates, four
+benches) is done and the topology **decision is made** — two-stage Miller for
+the audio buffer, the 5T OTA kept for the high-Z comparator/SAR blocks
 ([`docs/topology-review.md`](docs/topology-review.md)). Phase-1
-characterisation: noise, PVT corners, CMRR (68.7 dB) all pass; THD was found
-**failing** at the 1 V pp spec swing (1.44 %) and is now **fixed** — a
-co-designed output stage + compensation retune, corner-verified, **8.6×
-better** ([see below](#the-gap-that-measurement-found--thd)) — and the ICMR
-bench pinned the residual-distortion floor to the input pair, not the output.
-Bias generator and the TT analog-slot resolution (O1) remain.
+characterisation is **all in**: noise, PVT corners and CMRR (68.7 dB) pass;
+THD was found **failing** at the 1 V pp spec swing (1.44 %) and is now
+**fixed** — a co-designed output stage + compensation retune, corner-verified,
+**8.6× better** ([see below](#the-gap-that-measurement-found--thd)) — the ICMR
+bench pinned the residual-distortion floor to the input pair (not the output),
+and a **constant-gm bias generator with a verified start-up** now replaces the
+ideal current source ([`docs/biasgen.md`](docs/biasgen.md)). Next: **phase 2,
+layout**.
 
 ## The block under design
 
@@ -125,13 +127,15 @@ python tb/noise.py               # input-referred noise -> docs/noise.md
 python tb/corners.py             # PVT corners + Monte Carlo offset -> docs/corners.md
 python tb/thd.py                 # THD vs level / freq / topology / drive -> docs/thd.md
 python tb/cmrr.py                # CMRR + ICMR (+ the ICMR/THD cross-check) -> docs/cmrr.md
+python tb/biasgen.py             # constant-gm bias reference + start-up -> docs/biasgen.md
 ```
 
 Results: [`docs/results.md`](docs/results.md),
 [`docs/compensation.md`](docs/compensation.md),
 [`docs/noise.md`](docs/noise.md), [`docs/corners.md`](docs/corners.md),
-[`docs/thd.md`](docs/thd.md) and [`docs/cmrr.md`](docs/cmrr.md). Spec targets
-are asserted in `SPEC` in `tb/run.py` and print PASS/FAIL per row.
+[`docs/thd.md`](docs/thd.md), [`docs/cmrr.md`](docs/cmrr.md) and
+[`docs/biasgen.md`](docs/biasgen.md). Spec targets are asserted in `SPEC`
+in `tb/run.py` and print PASS/FAIL per row.
 
 ## For the reviewer
 
@@ -211,8 +215,11 @@ fix leaves untouched.)
 
 ## Next
 
-Phase 1's open items: the **bias generator** (constant-gm with start-up,
-replacing the ideal external current source) and resolving the **TT
-analog-slot supply domain** (O1). A wider-ICMR input (rail-to-rail /
-complementary pair) is the noted path if the console ever wants THD below
-0.1 % at the full swing. Full roadmap in [`PLAN.md`](PLAN.md).
+**Phase 2 — layout.** Common-centroid input pair, dummy devices, guard rings,
+matched routing, and post-extraction re-simulation on the `stdcells`
+toolchain — post-layout is where analog designs go to die, so it gets
+budgeted for accordingly. Two carried-forward design items feed into it: swap
+the bias generator's ideal R for a real xhigh_po poly resistor (the
+reference's true PVT floor), and a wider-ICMR input (rail-to-rail /
+complementary pair) if THD below 0.1 % at the full swing is ever wanted. Full
+roadmap in [`PLAN.md`](PLAN.md).

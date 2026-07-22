@@ -529,3 +529,53 @@ The general lesson, again this repo's: a distortion number is a composite,
 and it is worth splitting by *which device on which half-cycle* before
 prescribing a fix. Here the two halves had different culprits, and the output
 fix that cured one was blind to the other.
+
+## 14. The bias generator — a constant-gm reference, and two ways its start-up can be wrong
+
+Every number in §1–§13 assumed an ideal 20 µA source programming the tail.
+`spice/biasgen.sp` is the beta-multiplier that replaces it, and
+`docs/biasgen.md` verifies it (spec O2). Three results, and two bugs worth
+keeping.
+
+**Constant-gm works, cleanly.** Over the full PVT box the reference current
+moves 15.8–22.8 µA (±18 %, temperature-driven) while **gm·R holds
+0.913–0.927 — a 1.5 % spread.** That is the point of the topology: the loop
+moves the current to hold the transconductance, so the OTA's gm (hence its
+UGF and the compensation §12 tuned) rides on a resistor, not on the process.
+It is supply-independent too — 1.62 V and 1.98 V give the same 19.3 µA.
+**Caveat that is not a footnote:** R is ideal here, so this is the
+*transistor-side* spread only. gm ≈ 1/R means R's own variation maps straight
+onto gm; a real sky130 xhigh_po poly resistor (σ 2.5 % process + a tempco) is
+the reference's true PVT floor, and swapping it in is the honest next step.
+
+**It drives the real amplifier to the same point.** miller_ota at the fix
+operating point, biased by the reference instead of the ideal source, lands
+at V_out 0.9003 V either way (Δ 0.0 mV) — so every §1–§13 number survives the
+replacement. The cost is the reference's own ~55 µA draw (173 → 226 µA
+total), which busts the 200 µA per-buffer budget *if the reference is charged
+to one buffer* — but it is a shared block (one reference biases the DAC
+buffer, the comparator and the SAR), so the honest accounting is per-system,
+and a lower-current core mirrored up to the output would trim it.
+
+**Start-up is the reference's silent failure mode, and I hit both classic
+ways of getting it wrong.** The beta-multiplier has a perfectly stable I = 0
+state; a DC `.op` solver escapes it by gmin stepping and looks fine, but
+silicon powering up has no gmin stepping. Ramping the supply from 0:
+
+1. **First cut: the injector never engaged.** The start-up's weak pull-up
+   PMOS had its gate tied to VDD — V_gs = 0, off — so the sense node never
+   rose and the reference sat dead through the whole ramp. The `.op` point
+   had hidden it entirely (gmin found the live state); only the *transient*
+   caught it. Fix: gate to VSS (an always-on weak pull-up).
+2. **Second cut: the injector never released.** With the pull-up fixed but
+   too strong relative to the pull-down, the sense node stayed high after the
+   reference woke, so the injector kept sourcing ~18 µA forever and inflated
+   the reference to 49.8 µA. Fix: make the pull-up *very* weak (long L) and
+   the pull-down strong, so it dominates the instant the core is alive.
+
+With the ratio right the reference wakes to 19.4 µA in ~3.8 µs, and with the
+injector disconnected (`rsu = 1e12`) it stays dead — that pair, run every
+time, is the proof the start-up is load-bearing. **The lesson:** a bias
+reference must be signed off in *transient from a cold supply*, never on the
+DC operating point alone — the `.op` solver is precisely the tool that cannot
+see a start-up failure.

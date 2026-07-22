@@ -34,7 +34,7 @@ Console roles (why each block exists):
       (3.3 V VAPWR available, not taken); series coupling cap mandatory.
       Also fixed harness bugs H1/H2 (untagged benches) it found.
 
-## Phase 1 — close the op-amp (after the review)
+## Phase 1 — close the op-amp (after the review) — DONE 2026-07-22
 
 - [x] **Input-referred noise** (`tb/noise.py` -> `docs/noise.md`) — done
       out of order, because it was the unknown most likely to change the
@@ -73,9 +73,15 @@ Console roles (why each block exists):
       mechanism backwards (`design-notes.md` §7). Offset σ = 4.24 mV,
       3σ ≈ ±12.7 mV: negligible for this buffer, first-order for the
       comparator/SAR (§8).
-- [ ] Bias generator (constant-gm / beta-multiplier) with a start-up
-      circuit, replacing the ideal external current source (`spec.md` O2)
-- [ ] Resolve O1: TT analog-slot supply domain, pad and ESD path
+- [x] **Bias generator** (`tb/biasgen.py` -> `docs/biasgen.md`, design-notes
+      §14): constant-gm beta-multiplier + 3-transistor start-up replacing the
+      ideal `ib`. I_ref ≈ 19.3 µA; gm·R holds ~1.5 % over PVT while the current
+      moves ±18 % (constant-gm), supply-independent; start-up wakes it in
+      ~3.8 µs and is proven necessary (dead without it); drives the real OTA to
+      the identical operating point. Open: swap the ideal R for a real xhigh_po
+      poly resistor (the true PVT floor); the ~55 µA draw is shared overhead.
+- [x] **O1 resolved** (by the topology review): 3.3 V VAPWR available but not
+      taken; no separate analog domain; the pad + ESD *model* is a phase-2 item.
 
 ## Phase 2 — layout
 

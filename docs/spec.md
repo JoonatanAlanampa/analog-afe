@@ -87,16 +87,21 @@ capacitor; the resistance is an AC load only.
 
 ## Open questions (for the topology review)
 
-- **O1 — supply and pads.** TinyTapeout analog slots bring pins straight
-  out; the analog supply domain, the ESD structure in the path, and
-  whether a 3.3 V rail is available have NOT been verified against the
-  TT analog documentation. Everything here assumes a 1.8 V core supply.
-  If 3.3 V is available the input-common-mode problem below largely
-  disappears, which could change the topology choice.
-- **O2 — where the buffer's bias comes from.** Simulated with an ideal
-  external current source into `vb`. A constant-gm / beta-multiplier
-  reference is its own design task and its own silent failure mode
-  (start-up).
+- **O1 — supply and pads. CLOSED by the topology review.** 3.3 V VAPWR
+  exists but is deliberately not taken (`topology-review.md`, O1 section):
+  the noise premise for wanting it was already refuted, it needs 5 V device
+  flavors, and it does not help the 4 mA pad limit. TT documents no separate
+  analog supply domain / isolated ground / guard-ring provision, and ~20 mA
+  draw makes ~0.1 V of PDN drop — so PSRR is doing real work (another mark
+  for the two-stage amp). The pad + ESD *model* is a phase-2 (layout) item.
+- **O2 — where the buffer's bias comes from. ADDRESSED — `docs/biasgen.md`,
+  design-notes §14.** The ideal `ib` is replaced by a constant-gm
+  beta-multiplier + a 3-transistor start-up: I_ref ≈ 19.3 µA, gm·R holds to
+  ~1.5 % over PVT while the current moves ±18 % (constant-gm working), the
+  start-up wakes it in ~3.8 µs and is proven necessary (dead without it), and
+  it drives the real OTA to the identical operating point. Its ideal R still
+  wants a real xhigh_po poly resistor (the reference's true PVT floor), and
+  its ~55 µA draw is a shared, trimmable overhead.
 - **O3 — is a headphone drive in scope at all?** #3 assumes line level.
 - **O4 — the DAC's output impedance and common mode** are unknown, so
   the input common mode is assumed to be mid-rail (which is what a
