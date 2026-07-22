@@ -17,6 +17,7 @@ import gdstk
 # sky130 GDS layers (datatype), from stdcells/flow/layout.py
 NWELL = (64, 20)
 DIFF = (65, 20)
+TAP = (65, 44)           # substrate/well tie diff (distinct from active diff)
 NSDM = (93, 44)
 PSDM = (94, 20)
 POLY = (66, 20)
@@ -179,6 +180,24 @@ def via2(cell, xc, yc):
     _r(cell, VIA, xc - 0.075, yc - 0.075, xc + 0.075, yc + 0.075)
     _r(cell, MET1, xc - 0.16, yc - 0.16, xc + 0.16, yc + 0.16)
     _r(cell, MET2, xc - 0.16, yc - 0.16, xc + 0.16, yc + 0.16)
+
+
+def tap(cell, x0, y0, x1, y1, kind="p"):
+    """A body/well tie -- a filled diff tap over (x0,y0)-(x1,y1): diff + its
+    implant (p+ for a substrate/VSS tie, n+ for an nwell/VDD tie) + a licon-stud
+    array up to li. The li is the tie terminal; the caller wires it to the rail.
+    For an n-tap the caller must also draw nwell over it."""
+    sdm = PSDM if kind == "p" else NSDM
+    _r(cell, TAP, x0, y0, x1, y1)         # tap layer (65/44) -> extractor sees a tie
+    _r(cell, sdm, x0 - 0.03, y0 - 0.03, x1 + 0.03, y1 + 0.03)
+    _r(cell, LI, x0, y0, x1, y1)
+    xx = x0 + 0.17                       # li encloses the licon studs by >= 0.08
+    while xx <= x1 - 0.17 + 1e-6:
+        yy = y0 + 0.17
+        while yy <= y1 - 0.17 + 1e-6:
+            _r(cell, LICON, xx - 0.085, yy - 0.085, xx + 0.085, yy + 0.085)
+            yy += 0.34
+        xx += 0.34
 
 
 def guard_ring(cell, x0, y0, x1, y1, w=0.5, kind="p"):

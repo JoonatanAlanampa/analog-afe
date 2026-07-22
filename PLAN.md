@@ -185,9 +185,15 @@ Console roles (why each block exists):
       *path* bug, not a real failure.) Polarity note: layout reuses ota5t_core
       (`xm1` gate=`vinp`) so `vinp`/`vinn` are swapped vs miller_ota.sp's inverting
       convention — a label choice, topology identical.
-- [ ] **Parasitic (RC) re-simulation** — meaningful only at **production (full-W)
-      sizing** (scaled stand-ins won't reproduce the benches) → rail-tie guard
-      rings + the `vinp`/`vinn` feedback-sign label swap.
+- [x] **Substrate body tie** (`miller_ota`): a p+ `tap` (device.py `tap()`, on the
+      **tap layer 65/44** — plain diff is DRC-clean but electrically inert) wired
+      to the VSS rail ties the whole NMOS bulk to VSS. Extraction confirms all 5
+      NMOS **bulk = `VSS|vss_tap`** (was floating `sky130_gnd`); `run_amp_extract`
+      asserts it. Deck: `ptap_conn = tap.and(psdm).not(nwell)`; `connect(sub,ptap_conn)`.
+- [ ] **nwell body ties** (n+ tap in each well → VDD; wells need widening) +
+      **parasitic (RC) re-simulation** (meaningful only at **production full-W
+      sizing** — scaled stand-ins won't reproduce the benches) + the `vinp`/`vinn`
+      feedback-sign label swap — the tapeout-prep pass.
 
 ## Phase 3 — comparator
 

@@ -508,6 +508,15 @@ def build_miller_ota():
     D.strap(top, 18.5 - 0.28, 8.5 - 0.28, 18.5 + 0.28, 8.5 + 0.28, D.MET3)      # met3 min area
     D.strap(top, 18.5 - 0.16, 8.5 - 0.16, 26.0 + 0.16, 8.5 + 0.16, D.MET4)      # met4 right
     D.strap(top, 26.0 - 0.16, 7.0 - 0.16, 26.0 + 0.16, 8.5 + 0.16, D.MET4)      # down to P2
+
+    # substrate body tie: a p+ tap in the open gap, wired to the VSS rail. The
+    # substrate is one global net, so one tap ties the whole NMOS bulk to VSS
+    # (it floats on `sky130_gnd` otherwise). The nwell ties (n+ in each well ->
+    # VDD) need the wells widened, so they ride with the production redraw.
+    D.tap(top, 9.6, 1.0, 10.4, 1.9, kind="p")
+    D.via(top, 10.0, 1.45)                                          # li -> met1
+    D.strap(top, 10.0 - 0.14, 0.6, 10.0 + 0.14, 1.55, layer=D.MET1)  # down onto VSS rail
+    D.label(top, "vss_tap", 10.0, 1.9, layer=D.LILBL)
     top.flatten()
     lib = gdstk.Library()
     lib.add(top)

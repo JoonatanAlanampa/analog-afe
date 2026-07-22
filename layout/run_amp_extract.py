@@ -32,6 +32,7 @@ NETS = {  # display name -> labels that must ALL land on one extracted net
     "vout (output = Cc top plate)":         {"P2", "VOUT"},
     "nz   (Rz.M = Cc bottom plate)":        {"M", "P1", "nz"},
     "vb   (bias diode = tail = sink gate)": {"VB", "vb"},
+    "vss  (rail = substrate body tie)":     {"VSS", "vss_tap"},
 }
 
 

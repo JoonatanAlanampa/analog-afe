@@ -24,6 +24,7 @@ STYLE = [
     (D.PSDM, "#8f9fe5", 0.22, "psdm (p+)"),
     (D.URPM, "#c060c0", 0.22, "urpm (2k impl)"),
     (D.DIFF, "#2ea02e", 0.55, "diff"),
+    (D.TAP, "#1e7a4a", 0.55, "tap (body tie)"),
     (D.POLY, "#c0281e", 0.70, "poly (gate)"),
     (D.POLY_RES, "#f0d000", 0.40, "poly_res"),
     (D.LI, "#b8931e", 0.50, "li"),

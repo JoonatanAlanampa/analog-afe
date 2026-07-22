@@ -263,6 +263,23 @@ opposite sides from `miller_ota.sp`'s inverting convention. The topology is
 identical; which input is the inverting one is a label choice (swap the two
 `VIN` labels to match the schematic's feedback sign).
 
+## The substrate body tie
+
+Left untied, the amplifier's substrate floats — the extractor puts all five NMOS
+bulks on a nameless `sky130_gnd` net, separate from `VSS`. A single **p+ tap**
+in the open gap, wired down to the `VSS` rail, fixes it: the substrate is one
+global net, so one contact ties the whole NMOS bulk to `VSS` (real silicon needs
+this against latch-up and substrate noise). The re-extraction confirms it — all
+five NMOS now report **bulk = `VSS|vss_tap`**, and `run_amp_extract.py` asserts it.
+
+The catch worth recording: a body tie must be drawn on the **`tap` layer (65/44)**,
+not plain active diff (65/20). The deck's `ptap_conn = tap.and(psdm).not(nwell)`
+then `connect(sub, ptap_conn)` is what bonds the global substrate to the contact —
+a diff-drawn tap is DRC-clean but electrically does nothing, which is exactly what
+the first attempt showed (li merged to `VSS`, substrate still floating). The
+**nwell** ties (an n+ tap in each well → `VDD`) need the wells widened to make
+room, so they ride with the production redraw.
+
 ## What's next
 
 The amplifier is drawn, **fully wired**, and its device set + connectivity are
@@ -276,6 +293,7 @@ The amplifier is drawn, **fully wired**, and its device set + connectivity are
 - **Production sizing** — the blocks stand in at scaled W (W = 10 for the W = 60
   output device, ~200 fF for the 4 pF `Cc`); a real tapeout redraws them at full
   size, which mostly means more fingers / larger plates, not new topology.
-- **Rail-tie guard rings** (substrate → VSS, nwell → VDD) replace the bulk
-  *ports* with real body ties, and the `vinp`/`vinn` label swap that sets the
-  feedback sign (see above) goes in at the same pass.
+- **The nwell body ties** (n+ tap in each well → VDD) — the substrate is already
+  tied (above); the wells need widening for the taps, so they go in with the
+  production redraw, alongside the `vinp`/`vinn` label swap that sets the feedback
+  sign (see above).

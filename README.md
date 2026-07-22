@@ -255,13 +255,18 @@ It went device → matched pair → stage → amplifier:
 Full blow-by-blow, every layer-coloured figure, and the routing schemes are in
 [`docs/layout.md`](docs/layout.md).
 
+The substrate is body-tied too — a p+ tap wired to `VSS` ties the whole NMOS bulk
+(the re-extraction confirms `bulk = VSS`), the tie every real analog block needs
+against latch-up and substrate noise.
+
 **Next:** the netlist is confirmed by extraction; the remaining signoff is a
 **parasitic (RC) re-simulation** — how the layout's coupling moves the phase
 margin and THD — which is only meaningful once the blocks are redrawn at
 **production sizing** (they stand in at scaled W; a tapeout mostly adds fingers,
-not new topology) → rail-tie guard rings. A wider-ICMR input (rail-to-rail /
-complementary pair) also stays on the shelf as the path to THD below 0.1 % at
-full swing. Full roadmap in [`PLAN.md`](PLAN.md).
+not new topology), alongside the nwell body ties (the wells need widening for the
+taps). A wider-ICMR input (rail-to-rail / complementary pair) also stays on the
+shelf as the path to THD below 0.1 % at full swing. Full roadmap in
+[`PLAN.md`](PLAN.md).
 
 ### The whole op-amp, assembled and fully wired
 
