@@ -543,10 +543,20 @@ moves 15.8–22.8 µA (±18 %, temperature-driven) while **gm·R holds
 moves the current to hold the transconductance, so the OTA's gm (hence its
 UGF and the compensation §12 tuned) rides on a resistor, not on the process.
 It is supply-independent too — 1.62 V and 1.98 V give the same 19.3 µA.
-**Caveat that is not a footnote:** R is ideal here, so this is the
-*transistor-side* spread only. gm ≈ 1/R means R's own variation maps straight
-onto gm; a real sky130 xhigh_po poly resistor (σ 2.5 % process + a tempco) is
-the reference's true PVT floor, and swapping it in is the honest next step.
+
+**The resistor is the real floor — now measured, and it corrected a guess.**
+gm ≈ 1/R means R's own variation maps straight onto gm, so the ideal-R sweep
+(gm flat to 0.3 %) is an artifact of the ideal element, not a property of the
+reference. Swapping the ideal R for a real sky130 xhigh_po poly resistor
+(`docs/biasgen.md`) splits the floor in two: the **tempco is small** — gm
+holds ~0.7 % over −40…85 °C, barely worse than ideal, because a low tempco is
+exactly what `xhigh_po` is chosen for (I had expected the tempco to dominate;
+it does not) — while the resistor's **2.5 % process σ** (documented in the
+model, invisible to the FET corners because it is a Monte-Carlo term) is the
+dominant floor and maps directly onto the OTA's gm and UGF. So the reference's
+real gm PVT floor is the resistor's ~2.5 %, not the transistors — still far
+better than leaving gm to µCox (±20–30 %), which is the whole point of
+constant-gm, but the honest number belongs to the resistor.
 
 **It drives the real amplifier to the same point.** miller_ota at the fix
 operating point, biased by the reference instead of the ideal source, lands

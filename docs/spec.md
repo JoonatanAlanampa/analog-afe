@@ -99,9 +99,10 @@ capacitor; the resistance is an AC load only.
   beta-multiplier + a 3-transistor start-up: I_ref ≈ 19.3 µA, gm·R holds to
   ~1.5 % over PVT while the current moves ±18 % (constant-gm working), the
   start-up wakes it in ~3.8 µs and is proven necessary (dead without it), and
-  it drives the real OTA to the identical operating point. Its ideal R still
-  wants a real xhigh_po poly resistor (the reference's true PVT floor), and
-  its ~55 µA draw is a shared, trimmable overhead.
+  it drives the real OTA to the identical operating point. Swapping its ideal R
+  for a real xhigh_po poly resistor showed the true PVT floor is the resistor's
+  2.5 % process σ (its tempco is small — that is why xhigh_po is chosen), not
+  the transistors; its ~55 µA draw is a shared, trimmable overhead.
 - **O3 — is a headphone drive in scope at all?** #3 assumes line level.
 - **O4 — the DAC's output impedance and common mode** are unknown, so
   the input common mode is assumed to be mid-rail (which is what a

@@ -12,11 +12,11 @@ Reference current **19.3 µA** (target 20), vbias 0.656 V, and the reference dra
 | xmp2 | PMOS diode | 19.40 µA | 1.230 V | 0.218 V | +1.012 V |
 | xmn1 | NMOS diode (sets gm) | 19.35 µA | 0.700 V | 0.117 V | +0.583 V |
 | xmn2 | NMOS ×K + R | 19.40 µA | 0.503 V | 0.072 V | +0.431 V |
-| xmpo (out) | output mirror | 19.36 µA | 1.144 V | 0.218 V | +0.925 V |
+| xmpo (out) | output mirror | 19.37 µA | 1.144 V | 0.218 V | +0.925 V |
 
 ## Start-up — the reference's silent failure mode
 
-Supply ramped 0 → 1.8 V over 5 µs. With the 3-transistor start-up connected the reference **wakes** to 19.4 µA (settled ~3.8 µs). With the injector disconnected (`rsu=1e12`) it **stays dead** (I≈0) — the beta-multiplier's I=0 state is perfectly stable, so without the kick it never leaves it. That is the whole reason the start-up exists.
+Supply ramped 0 → 1.8 V over 5 µs. With the 3-transistor start-up connected the reference **wakes** to 19.4 µA (settled ~3.9 µs). With the injector disconnected (`rsu=1e12`) it **stays dead** (I≈0) — the beta-multiplier's I=0 state is perfectly stable, so without the kick it never leaves it. That is the whole reason the start-up exists.
 
 ## PVT — constant-gm holds, the current moves
 
@@ -25,22 +25,22 @@ Reference current spans **15.8–22.8 µA** across the box, but **gm·R holds 0.
 | process | temp | Vdd | I_ref | gm | gm·R | I_supply |
 |---|---|---|---|---|---|---|
 | tt | -40 °C | 1.8 V | 15.9 µA | 270.6 µS | 0.920 | 49 µA |
-| tt | +25 °C | 1.8 V | 19.3 µA | 270.2 µS | 0.919 | 59 µA |
+| tt | +25 °C | 1.8 V | 19.3 µA | 270.3 µS | 0.919 | 59 µA |
 | tt | +85 °C | 1.8 V | 22.7 µA | 271.1 µS | 0.922 | 69 µA |
-| ss | -40 °C | 1.8 V | 15.9 µA | 269.0 µS | 0.914 | 49 µA |
-| ss | +25 °C | 1.8 V | 19.4 µA | 268.6 µS | 0.913 | 59 µA |
+| ss | -40 °C | 1.8 V | 15.9 µA | 269.0 µS | 0.915 | 49 µA |
+| ss | +25 °C | 1.8 V | 19.4 µA | 268.7 µS | 0.913 | 59 µA |
 | ss | +85 °C | 1.8 V | 22.8 µA | 269.4 µS | 0.916 | 69 µA |
-| ff | -40 °C | 1.8 V | 15.9 µA | 272.1 µS | 0.925 | 49 µA |
-| ff | +25 °C | 1.8 V | 19.3 µA | 271.8 µS | 0.924 | 59 µA |
-| ff | +85 °C | 1.8 V | 22.7 µA | 272.7 µS | 0.927 | 69 µA |
+| ff | -40 °C | 1.8 V | 15.9 µA | 272.2 µS | 0.925 | 49 µA |
+| ff | +25 °C | 1.8 V | 19.3 µA | 271.9 µS | 0.924 | 59 µA |
+| ff | +85 °C | 1.8 V | 22.7 µA | 272.8 µS | 0.927 | 69 µA |
 | sf | -40 °C | 1.8 V | 15.8 µA | 270.0 µS | 0.918 | 48 µA |
 | sf | +25 °C | 1.8 V | 19.3 µA | 269.9 µS | 0.918 | 59 µA |
 | sf | +85 °C | 1.8 V | 22.7 µA | 270.9 µS | 0.921 | 69 µA |
-| fs | -40 °C | 1.8 V | 15.9 µA | 271.0 µS | 0.921 | 49 µA |
+| fs | -40 °C | 1.8 V | 15.9 µA | 271.0 µS | 0.922 | 49 µA |
 | fs | +25 °C | 1.8 V | 19.4 µA | 270.5 µS | 0.920 | 59 µA |
-| fs | +85 °C | 1.8 V | 22.8 µA | 271.2 µS | 0.922 | 70 µA |
-| tt | +25 °C | 1.62 V | 19.3 µA | 270.2 µS | 0.919 | 59 µA |
-| tt | +25 °C | 1.98 V | 19.3 µA | 270.2 µS | 0.919 | 59 µA |
+| fs | +85 °C | 1.8 V | 22.8 µA | 271.3 µS | 0.922 | 70 µA |
+| tt | +25 °C | 1.62 V | 19.3 µA | 270.3 µS | 0.919 | 59 µA |
+| tt | +25 °C | 1.98 V | 19.3 µA | 270.3 µS | 0.919 | 59 µA |
 
 ## Integration — driving the real amplifier
 
@@ -49,7 +49,22 @@ miller_ota at the fix operating point, biased two ways:
 | bias | V_out (unity, Vin=0.9) | V_b | total I_supply |
 |---|---|---|---|
 | ideal 20 µA source | 0.9003 V | 0.657 V | 173 µA |
-| **biasgen** | 0.9003 V | 0.656 V | 226 µA |
+| **biasgen** | 0.9003 V | 0.656 V | 227 µA |
 
 The amplifier lands at the same operating point (ΔV_out 0.00 mV), so the reference delivers the bias it was characterised with; the 54 µA supply delta is the reference's own draw (shared across all analog blocks).
+
+## Ideal R vs a real poly resistor — where the floor really is
+
+The PVT table above used an *ideal* R, which flatters the reference: a constant-gm loop holds gm·R = const **regardless of R**, so gm = const/R, and an ideal R (no tempco, no process spread) holds gm dead-flat. That is a property of the ideal element, not of the reference — the reference's gm (and therefore the OTA's gm, its UGF, and the compensation §12 tuned) is only as stable as this one resistor. Swapping in a real sky130 `xhigh_po` poly resistor (rpl ≈ 1.1 µm, ~3.5 kΩ) splits that floor into its two real parts:
+
+| resistor | gm @ −40 °C | gm @ 25 °C | gm @ 85 °C | gm spread over T (tt) |
+|---|---|---|---|---|
+| ideal R | 270.6 µS | 270.3 µS | 271.1 µS | **0.3 %** |
+| poly xhigh_po | 266.2 µS | 265.7 µS | 267.5 µS | **0.7 %** |
+
+- **Tempco is small.** The poly holds gm to ~0.7 % across −40…85 °C, barely worse than the ideal R — which is exactly why `xhigh_po` is the reference-grade poly: it is chosen for a low temperature coefficient. (I expected the tempco to dominate; the measurement says it does not.)
+
+- **Process σ is the real floor, and the FET corners are blind to it.** The resistor carries a documented **2.5 % process σ** (the model's `sky130_fd_pr__res_xhigh_po__var std = 0.025`) — a Monte-Carlo term, so the ss/ff corners, which vary only the transistors, leave the poly's gm essentially unmoved. Since gm = const/R, that 2.5 % maps **directly** onto the reference's gm, and onto the OTA's gm and UGF downstream.
+
+So the reference's real gm PVT floor is ~2.5 % (process) with a small tempco on top — set by the **resistor**, not the transistors. That is still far better than leaving gm to µCox (±20–30 % over the same box), which is the entire reason to build a constant-gm reference; but the honest number is the resistor's, and pinning it down for real is a post-layout Monte-Carlo signoff item, alongside the input-pair matching.
 

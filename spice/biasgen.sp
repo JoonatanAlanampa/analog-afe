@@ -26,7 +26,7 @@
 *   the injector and watch the reference sit dead forever -- that comparison
 *   is the proof the start-up is load-bearing (docs/biasgen.md).
 * -----------------------------------------------------------------------
-.subckt biasgen vbias vdd vss rval=3400 kmul=8 rsu=1
+.subckt biasgen vbias vdd vss rval=3400 kmul=8 rsu=1 rpl=1e4
 
 * --- beta-multiplier core -------------------------------------------------
 * PMOS mirror on top: xmp2 diode-connected (nr), xmp1 mirrors it 1:1
@@ -35,7 +35,15 @@ xmp2 nr nr vdd vdd sky130_fd_pr__pfet_01v8 w=5 l=1 m=2
 * NMOS mirror on bottom: xmn1 diode (nl), xmn2 gate=nl, K× wider, degenerated
 xmn1 nl nl vss  vss sky130_fd_pr__nfet_01v8 w=5 l=1 m=2
 xmn2 nr nl src  vss sky130_fd_pr__nfet_01v8 w=5 l=1 m={kmul}
+* --- degeneration R: ideal `rdeg` in PARALLEL with a real xhigh_po poly ---
+* Defaults (rpl = 1e4 um -> ~31 Mohm) leave the poly negligible so rval sets R.
+* To use the REAL resistor, call with rval = 1e9 (ideal ~open) and rpl sized
+* for the target (~1 um for 3.4 kohm). The poly's tempco + 2.5 % process sigma
+* are then the reference's true PVT floor -- a constant-gm loop holds
+* gm·R = const regardless of R, so gm (hence the OTA's gm) tracks 1/R and is
+* only as stable as this resistor.
 rdeg src vss {rval}
+xrp  src vss vss sky130_fd_pr__res_xhigh_po_0p69 w=0.69 l={rpl}
 
 * --- output mirror leg: source I into vbias (drives the OTA's vb diode) ----
 xmpo vbias nr vdd vdd sky130_fd_pr__pfet_01v8 w=5 l=1 m=2
