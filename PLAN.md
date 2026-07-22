@@ -170,9 +170,16 @@ Console roles (why each block exists):
       **over the cells on met2** (via-stack tap up / cross / drop down — the
       answer to the "doesn't compose for free" lesson at amplifier scale), plus
       the VDD/VSS rails tied. **DRC-clean.** device.py += `via_li_met2` tap.
-- [ ] **Close the Rz/Cc compensation branch** (`Rz.M`=`nz` → `Cc` bottom plate,
-      `Cc` top plate → `vout`, via a met2→met3→met4 stack) → **post-extraction
-      re-simulation** (decides the silicon) → rail-tie guard rings.
+- [x] **Rz/Cc compensation branch closed** — the amp is now **fully wired**:
+      `nz` (`Rz.M`) drops onto the `Cc` met3 bottom plate via a met2→met3 (via2);
+      `vout` climbs an isolated met2→met3→met4 stack (left of the plate so it
+      never lands on the bottom plate) and crosses on met4 to the `Cc` top plate.
+      Every net of `miller_ota` routed, **DRC-clean**. device.py += `via_met2_met3`
+      / `via_met3_met4`. Lesson: an isolated upper-metal via island needs a
+      min-area met3 patch (m3.6).
+- [ ] **Whole-amp post-extraction re-simulation** (decides the silicon; gated on
+      the KLayout deep-mode extractor erroring on the big flat cell — try
+      hierarchical/per-block) → rail-tie guard rings → production (full-W) sizing.
 
 ## Phase 3 — comparator
 

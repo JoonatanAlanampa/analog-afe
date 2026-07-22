@@ -109,7 +109,7 @@ local — so nothing has to cross. It extracts to two W=10 PMOS, xm3 diode-tied 
 | `out_stage` (miller stage 2: PMOS CS + NMOS sink, class-A) | **CLEAN** | **MATCH** |
 | `res_rz` (xhigh_po poly resistor, ~10 kΩ) | **CLEAN** | **R=10 kΩ ✓** (extract) |
 | `cap_cc` (MIM cap on met3, ~200 fF) | **CLEAN** | **C=200 fF ✓** (extract) |
-| `miller_ota` (whole amp: 4 blocks + rails/n2/vb wired) | **CLEAN** | — (assembly) |
+| `miller_ota` (whole amp: 4 blocks, **fully wired**) | **CLEAN** | — (assembly) |
 
 **All three sub-blocks of the 5T OTA — the NMOS input pair, the PMOS mirror
 load, and the NMOS tail/bias — are laid out and verified as the right circuit,
@@ -228,32 +228,41 @@ is exactly what matters for devices whose value is the spec.
   clean gap between them;
 - **`n2`**, the inter-stage signal, carries the stage-1 output to the `xm5` gate
   *and* to `Rz.P` (the compensation tap);
-- **`vb`**, the shared bias, ties the stage-1 tail diode to the stage-2 sink gate.
+- **`vb`**, the shared bias, ties the stage-1 tail diode to the stage-2 sink gate;
+- the whole **`Rz`/`Cc` Miller compensation branch** — `n2`–`Rz`–`nz`–`Cc`–`vout`.
 
 The signal nets were the interesting part. Each block's `n2`/`vb`/`N2`/`VB` pins
 are thin (0.17 µm) `li` buried mid-cell — they were never brought to an abutment
-edge — so rather than re-open the blocks, `n2` and `vb` are **routed *over* the
-cells on met2**, which is free above these `li`/`met1` blocks: a via stack taps
-each pin up (li → met1 → met2), the wire runs across on met2, and another stack
-drops down at the far pin. The whole wired cell is **DRC-clean**. This is the
-*"a block does not compose for free"* lesson from the 5T core, one level up — and
-the over-the-cell metal layer is the answer to it at amplifier scale.
+edge — so rather than re-open the blocks, the signals are **routed *over* the
+cells on the upper metals**, which are free above these `li`/`met1` blocks: a via
+stack taps each pin up (li → met1 → met2), the wire runs across on met2, and
+another stack drops down at the far pin. The compensation branch needed the two
+layers *above* that: `nz` taps `Rz.M` up to met2 and drops onto the `Cc` bottom
+plate through a **met2→met3 (via2)**, and `vout` climbs an **isolated
+met2→met3→met4 stack** (placed left of the plate so it never lands on the met3
+bottom plate) and crosses on met4 to the `Cc` top plate. The whole wired cell is
+**DRC-clean**. This is the *"a block does not compose for free"* lesson from the
+5T core, one level up — and the over-the-cell metal stack is the answer to it at
+amplifier scale.
 
-**What's still open on the wiring.** The active signal path (`n2`, `vb`) and the
-rails are routed; the **`Rz`/`Cc` compensation branch** is not yet closed — that
-needs the cap's plates (`Cc` is on met3/met4) tied to `Rz.M` (`nz`) and to `vout`
-through a met2→met3→met4 via stack. And a **whole-amp post-extract** LVS remains
-the signoff (the passives block a device *compare*, and KLayout's deep-mode
-extractor errors on the large flattened multi-block cell — a tooling quirk, not a
-geometry one; every sub-block is individually verified).
+**What remains is the signoff, not the wiring.** Every net of the amplifier is
+routed. A **whole-amp post-extract** LVS is the remaining check — and it is a
+tooling matter, not a geometry one: the passives block a device *compare* (as
+above), and KLayout's deep-mode extractor errors on the large flattened
+multi-block cell. Every sub-block is individually DRC-clean and LVS/extraction-
+verified.
 
 ## What's next
 
-- **Close the compensation branch** — tie `Rz.M` (`nz`) to the `Cc` bottom plate
-  and the `Cc` top plate to `vout`, through a met2 → met3 → met4 via stack (the
-  cap's plates live on the upper metals). The active path (`n2`, `vb`) and the
-  rails are already wired.
+The amplifier is drawn and **fully wired** — every net routed, DRC-clean. What
+remains is signoff and realism, not connectivity:
+
 - **Post-extraction re-simulation** — run the benches again on the parasitic-
-  extracted netlist, the number that actually decides whether the silicon works.
+  extracted netlist, the number that actually decides whether the silicon works
+  (gated on the KLayout deep-mode extractor, which errors on the large flattened
+  cell — likely a hierarchical or per-block extraction instead).
 - **Rail-tie guard rings** (substrate → VSS, nwell → VDD) replace the bulk
   *ports* with real body ties.
+- **Production sizing** — the blocks stand in at scaled W (e.g. W = 10 for the
+  W = 60 output device, ~200 fF for the 4 pF `Cc`); a real tapeout redraws them
+  at full size, which mostly means more fingers / larger plates, not new topology.

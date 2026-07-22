@@ -489,6 +489,25 @@ def build_miller_ota():
     D.strap(top, 2.95 - 0.16, 2.6 - 0.16, 13.815 + 0.16, 2.6 + 0.16, D.MET2)    # across
     D.strap(top, 13.815 - 0.16, 1.3 - 0.16, 13.815 + 0.16, 2.6 + 0.16, D.MET2)  # down
     D.label(top, "vb", 8.5, 2.6, layer=D.MET2LBL)
+
+    # --- the Miller compensation branch: n2 -Rz- nz -Cc- vout -------------
+    # nz: Rz.M (li) up to met2, over to the cap, via2 down onto the Cc bottom
+    # plate (met3 P1, in the plate region left of capm)
+    D.via_li_met2(top, 13.5, 22.35)
+    D.strap(top, 13.5 - 0.16, 22.35 - 0.16, 20.0 + 0.16, 22.35 + 0.16, D.MET2)  # right
+    D.strap(top, 20.0 - 0.16, 10.0 - 0.16, 20.0 + 0.16, 22.35 + 0.16, D.MET2)   # down
+    D.via_met2_met3(top, 20.0, 10.0)                                            # -> P1
+    D.label(top, "nz", 20.0, 13.5, layer=D.MET2LBL)
+    # vout: out_stage VOUT (met1) up to met2, an ISOLATED met2->met3->met4 stack
+    # left of the cap (so it never touches the met3 P1 plate), then met4 across
+    # to the Cc top plate (P2)
+    D.via2(top, 16.0, 8.5)                                          # met1 -> met2
+    D.strap(top, 16.0 - 0.16, 8.5 - 0.16, 18.5 + 0.16, 8.5 + 0.16, D.MET2)      # to stack
+    D.via_met2_met3(top, 18.5, 8.5)
+    D.via_met3_met4(top, 18.5, 8.5)
+    D.strap(top, 18.5 - 0.28, 8.5 - 0.28, 18.5 + 0.28, 8.5 + 0.28, D.MET3)      # met3 min area
+    D.strap(top, 18.5 - 0.16, 8.5 - 0.16, 26.0 + 0.16, 8.5 + 0.16, D.MET4)      # met4 right
+    D.strap(top, 26.0 - 0.16, 7.0 - 0.16, 26.0 + 0.16, 8.5 + 0.16, D.MET4)      # down to P2
     top.flatten()
     lib = gdstk.Library()
     lib.add(top)

@@ -30,9 +30,9 @@ is well under way** — *every device of the two-stage amplifier is now drawn an
 verified*: both active stages (the **5T core** and the **class-A output**) are
 routed and **LVS-clean**, and both passives (the **nulling resistor** and the
 **MIM compensation cap**) are drawn and **extraction-verified** at value; the
-four blocks are then **assembled and wired into the amplifier**
-([see below](#phase-2--layout-the-whole-amplifier-drawn)) — rails, the `n2`
-inter-stage signal and the shared bias routed, DRC-clean. `layout/verify.py`
+four blocks are then **assembled and fully wired into the amplifier**
+([see below](#phase-2--layout-the-whole-amplifier-drawn)) — every net routed
+(rails, `n2`, `vb`, and the whole `Rz`/`Cc` compensation branch), DRC-clean. `layout/verify.py`
 runs the whole DRC + LVS + extract regression green — 12 cells DRC-clean, 7
 LVS-matched, 2 passives extract-verified ([`docs/layout.md`](docs/layout.md)).
 
@@ -253,25 +253,25 @@ It went device → matched pair → stage → amplifier:
 Full blow-by-blow, every layer-coloured figure, and the routing schemes are in
 [`docs/layout.md`](docs/layout.md).
 
-**Next:** close the `Rz`/`Cc` **compensation branch** (the cap's plates live on
-the upper metals — a met2→met3→met4 via stack to `nz` and `vout`) → a whole-amp
-**post-extraction re-simulation**, the number that decides whether the silicon
-works → rail-tie guard rings. A wider-ICMR input (rail-to-rail / complementary
-pair) also stays on the shelf as the path to THD below 0.1 % at full swing. Full
-roadmap in [`PLAN.md`](PLAN.md).
+**Next:** a whole-amp **post-extraction re-simulation** — the number that decides
+whether the silicon works → rail-tie guard rings → production sizing (the blocks
+stand in at scaled W; a tapeout redraws them at full size, mostly more fingers,
+not new topology). A wider-ICMR input (rail-to-rail / complementary pair) also
+stays on the shelf as the path to THD below 0.1 % at full swing. Full roadmap in
+[`PLAN.md`](PLAN.md).
 
-### The whole op-amp, assembled and wired
+### The whole op-amp, assembled and fully wired
 
-Every device of the two-stage Miller amplifier, placed and **wired** as one cell —
-the 5T core (stage 1) on the left, the class-A output (stage 2) beside it, the
-nulling resistor `Rz` and the MIM compensation cap `Cc` to the right. The
-**VDD/VSS rails** are tied across the two stages on met1; **`n2`** — the
-inter-stage signal — carries the stage-1 output to the `xm5` gate and to the
-resistor; and the shared bias **`vb`** ties the two stages' current sources. The
-signal nets are routed *over the cells* on met2 (a via stack taps each buried
-`li` pin up, the wire crosses on met2, another stack drops down) — the answer to
-the *"a block doesn't compose for free"* lesson at amplifier scale. Every block
-is individually DRC-clean and LVS/extraction-verified, and the whole wired cell is
-**DRC-clean**.
+Every device of the two-stage Miller amplifier, placed and **wired** into one
+cell — the 5T core (stage 1) on the left, the class-A output (stage 2) beside it,
+the nulling resistor `Rz` and the MIM compensation cap `Cc` to the right. Every
+net is routed: the **VDD/VSS rails** tied across the stages; **`n2`** carrying the
+stage-1 output to the `xm5` gate and to `Rz`; the shared bias **`vb`**; and the
+whole **`Rz`/`Cc` Miller compensation branch**, `n2`–`Rz`–`nz`–`Cc`–`vout`. The
+signals are routed *over the cells* on the upper metals — a via stack taps each
+buried `li` pin up, the wire crosses on met2 (and met3/met4 for the cap's plates),
+another stack drops down — the answer to the *"a block doesn't compose for free"*
+lesson at amplifier scale. Every block is individually DRC-clean and
+LVS/extraction-verified, and the whole wired cell is **DRC-clean**.
 
-![The whole two-stage Miller op-amp in sky130 layout: the 5T OTA first stage (three stacked common-centroid strips), the class-A output stage, the xhigh_po nulling resistor and the MIM compensation cap; the VDD/VSS rails are tied across the stages and the n2 and vb signals are routed over the cells on metal2. DRC-clean.](docs/img/layout_miller_ota.png)
+![The whole two-stage Miller op-amp in sky130 layout, fully wired: the 5T OTA first stage (three stacked common-centroid strips), the class-A output stage, the xhigh_po nulling resistor and the MIM compensation cap; the VDD/VSS rails, the n2 inter-stage signal, the shared vb bias and the complete Rz/Cc compensation branch are all routed over the cells on metal2/3/4. DRC-clean.](docs/img/layout_miller_ota.png)

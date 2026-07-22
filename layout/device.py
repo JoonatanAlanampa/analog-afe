@@ -156,6 +156,21 @@ def via_li_met2(cell, xc, yc):
     via2(cell, xc, yc)
 
 
+def via_met2_met3(cell, xc, yc):
+    """met2 <-> met3 via (via2, 69/44 = 0.2), with met2/met3 pads enclosing it by
+    0.09 (via2.5 wants 0.085 on m3)."""
+    _r(cell, VIA2, xc - 0.1, yc - 0.1, xc + 0.1, yc + 0.1)
+    _r(cell, MET2, xc - 0.19, yc - 0.19, xc + 0.19, yc + 0.19)
+    _r(cell, MET3, xc - 0.19, yc - 0.19, xc + 0.19, yc + 0.19)
+
+
+def via_met3_met4(cell, xc, yc):
+    """met3 <-> met4 via (via3, 70/44 = 0.2), pads enclosing by 0.09 (via3.5)."""
+    _r(cell, VIA3, xc - 0.1, yc - 0.1, xc + 0.1, yc + 0.1)
+    _r(cell, MET3, xc - 0.19, yc - 0.19, xc + 0.19, yc + 0.19)
+    _r(cell, MET4, xc - 0.19, yc - 0.19, xc + 0.19, yc + 0.19)
+
+
 def via2(cell, xc, yc):
     """met1 -> met2 via: a VIA (0.15 exact) capped by a met1 pad below and a
     met2 pad above, each enclosing it by 0.085 (0.32 sq). The caller's own met1

@@ -105,7 +105,7 @@ if __name__ == "__main__":
            "bottom plate met3 (P1), top plate capm (P2) contacted up via3->met4;"
            " 10x10 um -> ~200 fF\nDRC-clean + extraction-verified: cap_mim "
            "C=2e-13 F", nets=True)
-    render("miller_ota", "miller_ota — the whole two-stage amplifier, wired\n"
-           "5T core | class-A output | Rz | Cc;  VDD/VSS rails tied, and n2 "
-           "(stage-1 out -> xm5 gate -> Rz) + vb routed over-the-cell on met2\n"
-           "DRC-clean", nets=True)
+    render("miller_ota", "miller_ota — the whole two-stage amplifier, fully "
+           "wired\n5T core | class-A output | Rz | Cc;  VDD/VSS rails + n2 + vb "
+           "+ the Rz/Cc Miller\ncompensation branch (n2-Rz-nz-Cc-vout, "
+           "met2->met3->met4) all routed. DRC-clean", nets=True)
