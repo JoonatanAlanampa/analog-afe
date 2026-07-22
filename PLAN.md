@@ -41,7 +41,17 @@ Console roles (why each block exists):
       topology call. It did not: all candidates ~23-24 µV rms, ~4× under
       spec, and the NMOS-pair flicker caveat is REFUTED (`design-notes.md`
       §6). Noise does not discriminate the topologies.
-- [ ] THD at 1 V pp / 1 kHz, CMRR, input common-mode range sweep
+- [x] **THD** (`tb/thd.py` -> `docs/thd.md`) — and it found a real gap:
+      at the 1 V pp spec swing THD is **1.44 %**, over both spec row 12
+      (< 1 %) and the review's proposed 0.1 %. The buffer is a clean line
+      source (< 0.1 %) only up to ~0.75 V pp — the class-A output sink
+      (61.5 µA, the §5 slew-asymmetry device) runs out of pull at the
+      required swing. The `drive` sweep sizes the fix: scaling the output
+      stage drops THD hard (0.22 % by ×2) but the ×1 compensation loses
+      phase margin (< 60° by ×2), so the fix is a **joint output-current +
+      Cc/Rz retune**, not a knob (`design-notes.md` §11). Not yet applied:
+      picking a (pout, Cc, Rz) point and re-running `corners.py` on it.
+- [ ] CMRR, input common-mode range (ICMR) sweep
 - [x] **Corners: ss/ff/sf/fs × −40/25/85 °C ± 10 % supply, and Monte
       Carlo offset** (`tb/corners.py` -> `docs/corners.md`). Settled the
       compensation call: the Rz = 20 k lead point is the MOST corner-

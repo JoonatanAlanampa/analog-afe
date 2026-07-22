@@ -347,3 +347,81 @@ asymmetric circuit is measured in both directions.
   `stdcells/flow/common.py`**, including the Windows 8.3 short-path
   conversion — this machine's home directory has a space in it and
   ngspice's `.lib` parser splits on spaces.
+
+## 11. THD — the output stage is sink-limited at the spec swing, and the fix is not a single knob
+
+The topology review's Call 2 said the ≥ 60 dB gain row was guarding the
+wrong thing for an AC-coupled line output and should be a THD target, with
+THD actually measured. `tb/thd.py` ([`thd.md`](thd.md)) measures it, and it
+is the first bench to **fail** the spec.
+
+**At the 1 V pp spec swing (row 3 minimum), THD is 1.44 % at 1 kHz** — over
+both spec row 12 (< 1 %) and the review's proposed 0.1 %. The buffer is a
+clean line source only up to ~0.75 V pp; above that it knees hard:
+
+| swing | 0.5 | 0.6 | 0.7 | 0.8 | 0.9 | 1.0 |
+|---|---|---|---|---|---|---|
+| THD | 0.013 % | 0.031 % | 0.059 % | 0.110 % | 0.376 % | **1.44 %** |
+
+**Mechanism — the class-A output sink, the same device as §5.** `xm5` (PMOS
+common-source) sources hard; `xm6` is a current sink pinned at 61.5 µA. At
+1 V pp / 1 kHz the peak sink demand into the 10 kΩ AC load is
+0.5 V / 10 kΩ = 50 µA against that 61.5 µA — 1.23× of margin — so the
+pull-down half of the swing runs into the sink's gm nonlinearity. The
+harmonic split names it: h2 (even, up/down asymmetry) dominates, exactly
+the asymmetry that made the fall slew 2.6× worse than the rise (§5). By
+1.5 V pp h3 (odd compression) takes over at 11.9 % as the devices leave
+saturation near the rails. Distortion is worst at the top of the audio band
+(1.70 % at 20 kHz) because the loop gain that suppresses it falls there
+(56 → 53 dB). The single stage is far worse (5T OTA **18.0 %** at the same
+point) — drive-limited into 10 kΩ, the reason the review chose the two-stage.
+
+**The fix, and why it is not free.** `tb/thd.py drive` scales the output
+stage (`pout`, a new `.subckt` param, default 1 = shipped) and reads THD,
+phase margin, UGF and I_q at the *same* bias — because a lower-THD point
+that has lost its phase margin is a different circuit, not a better one:
+
+| scale | THD | PM | UGF | I_q | |
+|---|---|---|---|---|---|
+| ×1 shipped | 1.44 % | 68.3° | 9.6 MHz | 80 µA | fails THD |
+| **×1.5** | **0.62 %** | **63.2°** | 13.4 MHz | **111 µA** | **meets row 12 + 60° PM, in budget** |
+| ×2 | 0.22 % | 54.6° | 16.5 MHz | 142 µA | best THD, PM < 60° |
+| ×3 | 0.30 % | 39.7° | 20.2 MHz | 203 µA | out on PM *and* I_q; THD regresses |
+
+Two things the measurement caught that the textbook would not:
+
+- **The naive prediction was wrong.** More output gm2 should push the output
+  pole gm2/CL out and *improve* PM. It does the opposite — PM falls
+  monotonically — because the UGF column shows the crossover *rising*
+  (9.6 → 20.2 MHz), not sitting at gm1/Cc. That is the §7 finding biting
+  back: Rz = 20 kΩ is a lead/feedforward network, not pole-splitting, so
+  scaling gm2 pushes the feedforward crossover up and the higher UGF eats
+  the phase margin. The property that made Rz = 20 kΩ so *corner-stable*
+  (passive, gm2-independent) is the same one that couples it to this knob.
+- **So the fix is a joint output-current + Cc/Rz retune, not a knob.** The
+  minimal change meeting the *existing* spec (row 12, < 1 %) is **×1.5**:
+  0.62 % THD, 63.2° PM, 111 µA — one parameter, nominally clearing both THD
+  and phase margin inside the 200 µA budget (row 11). The review's tighter
+  0.1 % needs ≈×2 for the THD (0.22 %), but ×2 drops PM to 54.6°, so it
+  requires *re-compensating* at the higher gm2 to buy the margin back. ×3 is
+  out of bounds twice over (39.7° PM, 203 µA > budget) and its THD even
+  regresses — consistent with the loop peaking as the margin collapses.
+
+**Caveats.** All nominal (tt / 25 °C / 1.8 V). A chosen `pout` is a sizing
+signal, not a signoff number, until `tb/corners.py` runs on it the way it
+did for the compensation point (§7) — ×1.5's 3° of margin over 60° is thin.
+And THD is measured behind the `line` load's coupling cap; the series output
+cap the review made mandatory (Call 4) is assumed present.
+
+**A harness bug this sweep flushed out.** The first `drive` run reported I_q
+flat at 80 µA for every `pout` while THD and PM both scaled — an
+impossible-current tell. `bench_op` had gained a `params` argument but its
+netlist still called `_preamble(topo, load)` without it, so the DC run
+silently ignored `pout`. Same family as H1/§9: a bench returning a number
+the run did not actually produce. Fixed; I_q now scales 80 → 203 µA.
+
+**Bookkeeping.** Row 12 already tracks THD, so the review's "restate row 5
+as a THD target" lands there (tightened to its 0.1 %), now measured. Row 5's
+separate gain relaxation (accept 56.8 dB) is still only in the review, not
+yet in `tb/run.py`'s asserted `a_lf_db ≥ 60` — a tracked follow-up, not part
+of this bench.

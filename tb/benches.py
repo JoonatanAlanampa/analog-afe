@@ -48,7 +48,7 @@ xdut {vinp} {vinn} vout vb vdd vss {subckt_of(topo)} {params}
 
 
 # ---------------------------------------------------------------- op ----
-def bench_op(topo, load, tag_extra=""):
+def bench_op(topo, load, tag_extra="", params=""):
     # tag_extra is required for corner sweeps (H1): without it, every
     # corner's operating-point run writes op_<topo>_<load>.{sp,log},
     # overwriting the previous corner's artifacts. Even though the
@@ -63,7 +63,7 @@ def bench_op(topo, load, tag_extra=""):
         for p in OP_PARAMS:
             prints.append(f"print @m.xdut.x{inst}.m{model}[{p}]")
     net = f"""* {topo} DC operating point, load={load}
-{_preamble(topo, load)}
+{_preamble(topo, load, params=params)}
 vcm vinp 0 dc {vcm()}
 * unity-gain feedback so the output finds its own bias point
 lfb vout vinn 1e9

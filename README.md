@@ -15,10 +15,13 @@ digital chips (one
 and a hand-designed cartridge PCB. Analog is the part the digital chain
 never makes you think about: biasing, matching, noise, offset, headroom.
 
-**Status: kickoff.** Phase 0 is complete — spec, harness, two candidate
-topologies, four benches, results. The topology decision is deliberately
-**not** made here; it is a design review, and the data below is its
-input.
+**Status: phase 1.** Phase 0 (spec, harness, two candidates, four benches)
+is done and the topology **decision is made** — two-stage Miller for the
+audio buffer, the 5T OTA kept for the high-Z comparator/SAR blocks
+([`docs/topology-review.md`](docs/topology-review.md)). Phase-1
+characterisation is under way: noise and PVT corners pass; **THD is the one
+open failure** — 1.44 % at the 1 V pp spec swing, with the fix sized but not
+yet applied ([see below](#the-gap-that-measurement-found--thd)).
 
 ## The block under design
 
@@ -117,6 +120,7 @@ python tb/sweep_comp.py          # Cc x Rz compensation sweep for miller_ota
 python tb/sweep_comp.py line --report   # re-render from cached data
 python tb/noise.py               # input-referred noise -> docs/noise.md
 python tb/corners.py             # PVT corners + Monte Carlo offset -> docs/corners.md
+python tb/thd.py                 # THD vs level / freq / topology / drive -> docs/thd.md
 ```
 
 Results: [`docs/results.md`](docs/results.md),
@@ -128,9 +132,10 @@ in `SPEC` in `tb/run.py` and print PASS/FAIL per row.
 ## For the reviewer
 
 [`docs/review-brief.md`](docs/review-brief.md) is the one-page version:
-the comparison table, what the data says, what is still unmeasured, and
-the two calls (a gain-target restatement and the compensation point)
-that are deliberately left open.
+the comparison table, what the data says, and the calls it left open —
+which the review then made in
+[`docs/topology-review.md`](docs/topology-review.md) (two-stage Miller,
+Cc 2 pF / Rz 20 kΩ, line-level only, series coupling cap mandatory).
 
 The short version: the single-stage OTA is **drive**-limited, not
 gain-limited — its 40 dB intrinsic gain collapses to 6.8 dB into a
@@ -162,9 +167,35 @@ discriminate the two topologies (the entire second stage adds 0.4 %).
 Bias current is not the lever either: 5× the current buys 1.6 µV,
 because flicker scales with device *area*, not bias.
 
+## The gap that measurement found — THD
+
+Noise refuted a feared problem; THD found a real one. At the 1 V pp spec
+swing the buffer is **1.44 %** THD ([`docs/thd.md`](docs/thd.md)) — over
+both the old < 1 % row and the review's proposed 0.1 %. It is a clean line
+source only to ~0.75 V pp, then knees, because the class-A output sink
+(61.5 µA — the same device behind the 2.6× slew asymmetry) runs out of pull
+against the 50 µA the load demands.
+
+The bench then sizes the fix, and the sizing is the point: scaling the
+output stage (a `pout` param) drops THD hard, but **reading phase margin
+beside it** shows the ×1 compensation does not come along —
+
+| output scale | THD | phase margin | I_q |
+|---|---|---|---|
+| ×1 (shipped) | 1.44 % | 68.3° | 80 µA |
+| ×1.5 | 0.62 % | 63.2° | 111 µA |
+| ×2 | 0.22 % | **54.6°** (< 60° spec) | 142 µA |
+
+More output gm2 was *expected* to help phase margin (it pushes the output
+pole out); instead the UGF rises (9.6 → 16.5 MHz) and the margin falls,
+because Rz = 20 kΩ is a lead/feedforward network, not pole-splitting. So the
+fix is a joint output-current **and** Cc/Rz retune, not a knob — exactly
+what a lower-THD point measured *without* its phase margin would have
+hidden. The ×1.5 column is the minimal change that meets the existing spec
+in budget; 0.1 % needs ≈×2 plus a recompensation pass.
+
 ## Next
 
-Topology review (Fable, queued), then the rest of phase 1 — THD, CMRR,
-ICMR, and the now-largest unknown: PVT corners and Monte Carlo offset,
-which also decides the open compensation call. Full roadmap in
-[`PLAN.md`](PLAN.md).
+The rest of phase 1: apply the THD fix (pick a `pout`, recompensate,
+re-run `corners.py` on it), then **CMRR** and **input-common-mode range**.
+Full roadmap in [`PLAN.md`](PLAN.md).

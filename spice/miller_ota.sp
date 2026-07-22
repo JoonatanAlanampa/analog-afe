@@ -26,7 +26,13 @@
 * -----------------------------------------------------------------------
 * Compensation is parameterised so tb/sweep_comp.py can tune it without
 * editing this file: xdut ... miller_ota pcc=4p prz=3k
-.subckt miller_ota vinp vinn vout vb vdd vss pcc=2p prz=2k
+*
+* pout scales the OUTPUT stage (xm5/xm6) only, default 1 = the shipped
+* 60 uA sink. It exists because the THD bench (docs/thd.md) found the
+* as-shipped stage sink-limited at the 1 Vpp spec swing; tb/thd.py drive
+* sweeps it to size the distortion-vs-quiescent-current trade. Stage 1 and
+* the bias diode are untouched, so gm1 (hence UGF ~ gm1/Cc) is unchanged.
+.subckt miller_ota vinp vinn vout vb vdd vss pcc=2p prz=2k pout=1
 
 * --- bias diode: external source into vb sets 20 uA --------------------
 xmb   vb   vb   vss  vss  sky130_fd_pr__nfet_01v8  w=5 l=1 m=4
@@ -39,8 +45,11 @@ xm3   n1   n1   vdd  vdd  sky130_fd_pr__pfet_01v8  w=5 l=1 m=4
 xm4   n2   n1   vdd  vdd  sky130_fd_pr__pfet_01v8  w=5 l=1 m=4
 
 * --- stage 2: PMOS CS, NMOS sink at 3:1 off the same vb -> 60 uA -------
-xm5   vout n2   vdd  vdd  sky130_fd_pr__pfet_01v8  w=5 l=0.5 m=12
-xm6   vout vb   vss  vss  sky130_fd_pr__nfet_01v8  w=5 l=1 m=12
+* m scales with pout (default 1); both devices scale together so the
+* quiescent balance and the gm2/gm-ratio are preserved, only the drive
+* current (and the non-dominant pole gm2/CL) move.
+xm5   vout n2   vdd  vdd  sky130_fd_pr__pfet_01v8  w=5 l=0.5 m={12*pout}
+xm6   vout vb   vss  vss  sky130_fd_pr__nfet_01v8  w=5 l=1 m={12*pout}
 
 * --- Miller compensation ----------------------------------------------
 rz    n2   nz   {prz}

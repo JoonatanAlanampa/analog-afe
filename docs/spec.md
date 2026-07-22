@@ -35,11 +35,24 @@ disturb.
 | 9 | Slew rate | ≥ 0.1 V/µs | 1 V pp at 20 kHz needs 2π·20k·0.5 = 0.063 V/µs; ~60 % margin |
 | 10 | PSRR at 1 kHz | ≥ 40 dB | it shares a die with a CPU, a QSPI controller and video timing |
 | 11 | Quiescent current | ≤ 200 µA | budget, not a derivation — revisit when the DAC's is known |
-| 12 | THD | < 1 % at 1 V pp, 1 kHz | phase-2 bench, not measured yet |
-| 13 | Input-referred noise | < 100 µV rms, 20 Hz–20 kHz | phase-2 bench, not measured yet |
+| 12 | THD | **≤ 0.1 %** at 1 V pp, 1 kHz (line-level; was < 1 %) | measured **1.44 % — FAILS**, clean < 0.1 % only to ~0.75 V pp; fix = output-current + Cc/Rz retune (`docs/thd.md`, review Call 2) |
+| 13 | Input-referred noise | < 100 µV rms, 20 Hz–20 kHz | measured **24.3 µV — PASS** (~4× margin, ~83 dB SNR; `docs/noise.md`) |
 
 Targets 1–11 are checked by `tb/run.py`; 5, 7, 8, 10 and 9 are asserted
-in `SPEC` in `tb/run.py` and print PASS/FAIL in `docs/results.md`.
+in `SPEC` in `tb/run.py` and print PASS/FAIL in `docs/results.md`. Rows 12
+(THD, `tb/thd.py`) and 13 (noise, `tb/noise.py`) have their own benches.
+
+**Row 12 is the one open failure.** The topology review's Call 2 asked to
+stop using open-loop gain (row 5) as a distortion proxy and measure THD
+directly; that target lands here in row 12 (already the THD row), tightened
+to the review's line-level 0.1 %, and now measured. The as-built buffer is
+1.44 % at the required 1 V pp swing — a clean line source only to ~0.75 V pp,
+because the class-A output sink (61.5 µA) runs out of pull. The `drive`
+sweep in `docs/thd.md` sizes the fix (a ×1.5 output stage nominally clears
+< 1 % + 60° PM in budget; the 0.1 % target needs ≈×2 *and* a compensation
+retune) — the design change itself is the first open item of phase 1's
+close-out, not a spec edit. Call 2's separate row-5 gain relaxation (accept
+56.8 dB, still asserted at ≥ 60 in `tb/run.py`) is a tracked follow-up.
 
 ## Load corners
 

@@ -183,7 +183,16 @@ asymmetric circuit is measured in both directions.**
 
 Ranked by how much it could still change a decision:
 
-1. **THD** — now the top item (see call 2); no candidate has been tested.
+1. ~~**THD** — now the top item (see call 2); no candidate has been
+   tested.~~ **MEASURED 2026-07-22** (`docs/thd.md`, `design-notes.md`
+   §11): the two-stage Miller is 1.44 % at the 1 V pp spec swing — over
+   both the old row 12 (< 1 %) and the 0.1 % target proposed in call 2 —
+   because its class-A output sink (61.5 µA) is drive-limited there. The
+   `drive` sweep sizes the fix (a ×1.5 output stage clears < 1 % + 60° PM
+   in budget; 0.1 % needs ≈×2 **plus** a Cc/Rz retune, since more gm2
+   pushes the UGF up and costs phase margin — the call-3 lead network
+   biting back). This does not change any of the four calls; it adds an
+   open design item, not a topology reconsideration.
 2. **Input common-mode range / CMRR** — the unity-gain buffer pins V_CM at
    mid-rail, so ICMR is the assumption the whole topology choice rests on;
    it should be measured rather than inferred from the headroom argument.
