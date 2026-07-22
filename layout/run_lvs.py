@@ -34,6 +34,13 @@ REF = {
 M0 D G S B sky130_fd_pr__nfet_01v8 L=0.5u W=5u
 .ends
 """,
+    # common-centroid differential pair: two W=10 (2x5 finger) NMOS, common
+    # source (TAIL), gates VA/VB, drains OA/OB, shared bulk VNB.
+    "cc_diff": """.subckt cc_diff VA VB OA OB TAIL VNB
+MA OA VA TAIL VNB sky130_fd_pr__nfet_01v8 L=0.5u W=10u
+MB OB VB TAIL VNB sky130_fd_pr__nfet_01v8 L=0.5u W=10u
+.ends
+""",
 }
 
 

@@ -26,8 +26,9 @@ THD was found **failing** at the 1 V pp spec swing (1.44 %) and is now
 bench pinned the residual-distortion floor to the input pair (not the output),
 and a **constant-gm bias generator with a verified start-up** now replaces the
 ideal current source ([`docs/biasgen.md`](docs/biasgen.md)). **Phase 2 (layout)
-is now kicked off** — the flow is stood up and a common-centroid input pair is
-drawn DRC-clean ([`docs/layout.md`](docs/layout.md)).
+is under way** — the flow is stood up and the common-centroid input pair is
+drawn, **routed, and LVS-clean** (it extracts to exactly the two-transistor
+differential pair; [`docs/layout.md`](docs/layout.md)).
 
 ## The block under design
 
@@ -224,14 +225,19 @@ the two structures that matter most are drawn **DRC-clean**:
 
 ![Common-centroid NMOS input pair (D A B B A D) with a p-tap guard ring, DRC-clean on the sky130A_mr deck.](docs/img/layout_cc_pair.png)
 
-The input pair is drawn **common-centroid** — six interleaved fingers D A B B A D
-so devices A and B share a centroid and a linear process gradient cancels to
-first order (the matching a side-by-side layout can't get) — with dummy end
-fingers and a p-tap guard ring. Details and layer-by-layer notes in
-[`docs/layout.md`](docs/layout.md).
+The input pair is drawn **common-centroid** — interleaved fingers so devices A
+and B share a centroid and a linear process gradient cancels to first order
+(the matching a side-by-side layout can't get). It is then **routed into the
+differential pair and LVS-matched** — five nets leave one diffusion strip on
+two layers without a short, and the layout extracts to exactly two W=10 NMOS
+with a common source:
 
-**Next:** gate + source/drain routing → LVS → the full OTA + bias generator →
-post-extraction re-simulation. Two design items also carry in: the bias
+![Routed common-centroid input pair (A B B A) — VA/VB gate straps, TAIL common source, OA/OB drains — DRC-clean and LVS-matched.](docs/img/layout_cc_diff.png)
+
+Details and the routing scheme in [`docs/layout.md`](docs/layout.md).
+
+**Next:** fold in dummies + the guard ring, then the full OTA + bias generator
+→ post-extraction re-simulation. Two design items also carry in: the bias
 generator's real poly resistor is a post-layout Monte-Carlo signoff item, and
 a wider-ICMR input (rail-to-rail / complementary pair) is the path to THD
 below 0.1 % at the full swing if ever wanted. Full roadmap in

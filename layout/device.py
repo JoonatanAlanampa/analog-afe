@@ -114,6 +114,13 @@ def strap(cell, x0, y0, x1, y1, layer=LI):
     _r(cell, layer, min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1))
 
 
+def via(cell, xc, yc):
+    """li -> met1 via: an mcon capped by a met1 pad. Pad 0.28 x 0.30 mirrors
+    the stdcells pin (min met1 area, and enough enclosure of the 0.17 mcon)."""
+    _r(cell, MCON, xc - 0.085, yc - 0.085, xc + 0.085, yc + 0.085)
+    _r(cell, MET1, xc - 0.14, yc - 0.15, xc + 0.14, yc + 0.15)
+
+
 def guard_ring(cell, x0, y0, x1, y1, w=0.5, kind="p"):
     """A tap ring around (x0,y0)-(x1,y1): a diff ring, its implant as a ring
     (p+ for an NMOS body tie, n+ for an nwell tie -- NOT a filled rectangle,

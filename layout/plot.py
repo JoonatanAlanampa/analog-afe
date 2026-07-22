@@ -25,11 +25,13 @@ STYLE = [
     (D.DIFF, "#2ea02e", 0.55, "diff"),
     (D.POLY, "#c0281e", 0.70, "poly (gate)"),
     (D.LI, "#b8931e", 0.50, "li"),
+    (D.MET1, "#1e3ac0", 0.45, "met1"),
     (D.LICON, "#111111", 0.95, "licon"),
+    (D.MCON, "#5a5a5a", 0.95, "mcon"),
 ]
 
 
-def render(cellname, fingers_label=None):
+def render(cellname, title, fingers_label=None, finger_y=7.35, nets=False):
     lib = gdstk.read_gds(str(OUT / f"{cellname}.gds"))
     cell = next(c for c in lib.cells if c.name == cellname)
     fig, ax = plt.subplots(figsize=(11, 8.5))
@@ -41,8 +43,14 @@ def render(cellname, fingers_label=None):
     if fingers_label:
         for x, lab in fingers_label:
             col = {"A": "#c0281e", "B": "#1e3ac0", "D": "#666666"}[lab]
-            ax.text(x, 7.35, lab, ha="center", va="bottom", fontsize=13,
+            ax.text(x, finger_y, lab, ha="center", va="bottom", fontsize=13,
                     fontweight="bold", color=col)
+    if nets:
+        for lb in cell.labels:
+            ax.text(lb.origin[0], lb.origin[1], lb.text, ha="center",
+                    va="center", fontsize=8.5, fontweight="bold", color="white",
+                    bbox=dict(boxstyle="round,pad=0.15", fc="#222222", ec="none",
+                              alpha=0.85))
     handles = [Line2D([0], [0], marker="s", ls="", markersize=11,
                       markerfacecolor=c, markeredgecolor=c, alpha=min(a + 0.2, 1),
                       label=l) for _ly, c, a, l in STYLE]
@@ -51,9 +59,7 @@ def render(cellname, fingers_label=None):
     ax.set_aspect("equal")
     ax.autoscale()
     ax.margins(0.02)
-    ax.set_title(f"{cellname} — common-centroid NMOS input pair (D A B B A D) "
-                 "+ p-tap guard ring\nDRC-clean, sky130A_mr deck",
-                 fontsize=12, fontweight="bold")
+    ax.set_title(title, fontsize=12, fontweight="bold")
     ax.set_xlabel("µm")
     ax.set_ylabel("µm")
     IMG.mkdir(parents=True, exist_ok=True)
@@ -63,8 +69,12 @@ def render(cellname, fingers_label=None):
 
 
 if __name__ == "__main__":
-    # gate x-centres for the D A B B A D annotation (device at x0=2, SD=0.29,
-    # L=0.5): first gate centre at 2 + SD + L/2, pitch SD + L
-    x0, sd, L = 2.0, 0.29, 0.5
-    xs = [x0 + sd + L / 2 + i * (sd + L) for i in range(6)]
-    render("cc_pair", list(zip(xs, ["D", "A", "B", "B", "A", "D"])))
+    sd, L = 0.29, 0.5
+    xs6 = [2.0 + sd + L / 2 + i * (sd + L) for i in range(6)]
+    render("cc_pair", "cc_pair — common-centroid NMOS input pair (D A B B A D) "
+           "+ p-tap guard ring\nDRC-clean, sky130A_mr deck",
+           list(zip(xs6, ["D", "A", "B", "B", "A", "D"])))
+    xs4 = [2.0 + sd + L / 2 + i * (sd + L) for i in range(4)]
+    render("cc_diff", "cc_diff — common-centroid input pair, ROUTED "
+           "(A B B A)\nDRC-clean + LVS MATCH to two W=10 NMOS",
+           list(zip(xs4, ["A", "B", "B", "A"])), finger_y=8.4, nets=True)

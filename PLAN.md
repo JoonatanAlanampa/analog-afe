@@ -100,10 +100,13 @@ Console roles (why each block exists):
       (poly→npc→licon→li) + S/G/D labels, bulk as a port — extracts to exactly
       `M0 D G S B nfet_01v8 L=0.5u W=5u`, **LVS MATCH**. DRC proves geometry;
       this proves the circuit.
-- [ ] Route the common-centroid pair into a connected network (the tail, two
-      drains and two gates need met1 straps that cross without shorting — a
-      second routing layer) and LVS it.
-- [ ] Full OTA (5T core + second stage) + the bias generator, then
+- [x] **Common-centroid pair ROUTED + LVS-clean** (`cc_diff`, figure
+      `docs/img/layout_cc_diff.png`): four fingers A B B A → two **W=10** NMOS
+      with a common source; five nets routed on li+met1 without shorts (S/D
+      down, gates up; TAIL/OA and VA/VB cross only on different layers).
+      DRC-clean, **LVS MATCH** — the input pair verified as the right circuit.
+- [ ] Fold routing + dummies + guard ring into one input-stage cell; then the
+      full OTA (5T core + second stage) + the bias generator, then
       **post-extraction re-simulation** — the number that decides the silicon.
       Post-layout is where analog designs go to die; budget for it accordingly.
 
