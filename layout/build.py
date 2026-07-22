@@ -323,6 +323,71 @@ def build_ota5t_core():
     D.label(c, "VOUT", mcol[2], 21.5)
     _write(c)
 
+    build_out_stage()
+
+
+def build_out_stage():
+    """The miller_ota SECOND STAGE: xm5 (PMOS common-source) over xm6 (NMOS
+    current-sink load) sharing the output node -- a class-A output stage, the
+    same shape as a CMOS inverter. xm5 pulls VOUT toward VDD under gate N2 (the
+    stage-1 output); xm6 sinks a fixed current set by VB. Scaled W=10 (nf=2) to
+    match the sub-block refs; bulks are ports (VNB substrate, VNW nwell).
+
+    Layout: the two devices face each other, VOUT shared on met1 in the gap
+    (both drains are the centre column). Sources go to the rails (vss down, vdd
+    up); the gates escape to the sides on li -- VB left (down), N2 right (up)."""
+    c = gdstk.Cell("out_stage")
+    XC = 5.0
+
+    def met1_drop(x, y0s, Ws, y_end):
+        if y_end > y0s + Ws / 2:
+            via_y = y0s + 0.06 + 0.34 * int((Ws - 0.56) / 0.34)
+        else:
+            via_y = y0s + 0.06 + 0.34
+        D.strap(c, x - 0.165, via_y - 0.2, x + 0.165, via_y + 0.2, layer=D.LI)
+        D.via(c, x, via_y)
+        D.strap(c, x - 0.14, min(via_y, y_end), x + 0.14, max(via_y, y_end),
+                layer=D.MET1)
+
+    vout_bar, rail_vss, rail_vdd = 8.5, 0.6, 16.5
+
+    # ---- xm6: NMOS current-sink load, L=1 nf=2 (bottom) ------------------
+    x0n, y0n = XC - 1.435, 2.0
+    N = D.fet(c, x0n, y0n, W=5.0, L=1.0, nf=2, kind="n")
+    nc, ng = N["sds"], N["gates"]
+    met1_drop(nc[1], y0n, 5.0, vout_bar)                 # VOUT (drain, up)
+    for x in (nc[0], nc[2]):                             # VSS (sources, down)
+        met1_drop(x, y0n, 5.0, rail_vss)
+    D.strap(c, nc[0] - 0.14, rail_vss - 0.15, nc[2] + 0.14, rail_vss + 0.15,
+            layer=D.MET1)
+    D.label(c, "VSS", nc[0], rail_vss, layer=D.MET1LBL)
+    for x in ng:                                         # VB (gates, down/left)
+        D.poly_contact_dn(c, x, 1.0, y0n - 0.13, down=(y0n - 0.13) - 1.3)
+    D.strap(c, x0n - 0.85, 1.3 - 0.085, ng[1] + 0.165, 1.3 + 0.085, layer=D.LI)
+    D.label(c, "VB", x0n - 0.75, 1.3)
+
+    # ---- xm5: PMOS common-source, L=0.5 nf=2 (top) ----------------------
+    x0p, y0p = XC - 0.935, 10.0
+    P = D.fet(c, x0p, y0p, W=5.0, L=0.5, nf=2, kind="p")
+    pc, pg = P["sds"], P["gates"]
+    D.label(c, "VNW", x0p + P["totx"] / 2, y0p + 5.0 + 0.25)     # nwell port
+    met1_drop(pc[1], y0p, 5.0, vout_bar)                 # VOUT (drain, down)
+    D.strap(c, XC - 0.14, vout_bar - 0.15, XC + 0.14, vout_bar + 0.15,
+            layer=D.MET1)
+    D.label(c, "VOUT", XC, vout_bar, layer=D.MET1LBL)
+    for x in (pc[0], pc[2]):                             # VDD (sources, up)
+        met1_drop(x, y0p, 5.0, rail_vdd)
+    D.strap(c, pc[0] - 0.14, rail_vdd - 0.15, pc[2] + 0.14, rail_vdd + 0.15,
+            layer=D.MET1)
+    D.label(c, "VDD", pc[0], rail_vdd, layer=D.MET1LBL)
+    ny2 = None                                           # N2 (gates, up/right)
+    for x in pg:
+        _gx, ny2 = D.poly_contact(c, x, 0.5, y0p + 5.0 + 0.13, up=0.55)
+    D.strap(c, pg[0] - 0.165, ny2 - 0.085, x0p + P["totx"] + 0.85, ny2 + 0.085,
+            layer=D.LI)
+    D.label(c, "N2", x0p + P["totx"] + 0.75, ny2)
+    _write(c)
+
 
 if __name__ == "__main__":
     build()

@@ -106,6 +106,7 @@ local — so nothing has to cross. It extracts to two W=10 PMOS, xm3 diode-tied 
 | `tail_bias` (NMOS mirror: tail source + bias diode) | **CLEAN** | **MATCH** |
 | `met2_test` (met1↔met2 via + met2-over-met1 crossing) | **CLEAN** | — (layer check) |
 | `ota5t_core` (whole 5T OTA: 6 devices, 3 strips, routed) | **CLEAN** | **MATCH** |
+| `out_stage` (miller stage 2: PMOS CS + NMOS sink, class-A) | **CLEAN** | **MATCH** |
 
 **All three sub-blocks of the 5T OTA — the NMOS input pair, the PMOS mirror
 load, and the NMOS tail/bias — are laid out and verified as the right circuit,
@@ -151,12 +152,33 @@ because it had a free side; stacked into the core, the same nets have to exit
 redrawn (drains up, gates down) rather than instanced. The centroid *geometry*
 carried over; the *routing* did not.
 
+## The second stage — the class-A output
+
+![The miller_ota second stage: a PMOS common-source (xm5) above an NMOS current sink (xm6), their drains shared as VOUT on a central met1 riser; the PMOS gate N2 exits right on li, the NMOS gate VB left. DRC-clean and LVS-matched.](img/layout_out_stage.png)
+
+`out_stage` is the amplifier's **second stage** — `xm5`, a PMOS common-source
+driven by the stage-1 output `n2`, over `xm6`, an NMOS current sink biased by
+`vb`; their drains are tied as `VOUT`. It is the same shape as a CMOS inverter
+(a p-device over an n-device sharing a drain), which is exactly what a class-A
+output stage *is*. It extracts to the two transistors of `miller_ota.sp`'s stage
+2 — **DRC-clean + LVS MATCH, first run** — because the two hard-won 5T-core
+lessons carried straight over: sources leave on met1 through a via on a real
+licon stud inside the strip, and the gates escape to the *sides* on li while the
+drains meet on met1 up the centre, so nothing collides. Scaled W = 10 stands in
+for the shipped W = 60 drive device; the topology and routing are what's proven.
+
 ## What's next
 
-The core is the DC heart of the two-stage Miller amplifier. From here:
-**the second stage** (`xm5`/`xm6` + the Cc/Rz compensation the THD fix sized),
-**the bias generator** layout (the constant-gm cell `biasgen.sp`), and then
-**post-extraction re-simulation** — running the benches again on the parasitic-
-extracted netlist, the number that actually decides whether the silicon works.
-Rail-tie guard rings (substrate → VSS, nwell → VDD) replace the bulk *ports*
-with real body ties at that stage too.
+Both active pieces of the two-stage Miller amplifier are now laid out and
+LVS-clean — the 5T core (stage 1) and this output stage (stage 2). What remains
+of the amplifier layout:
+
+- **The Miller passives** — the compensation cap `Cc` (a ~4 pF MIM or MOS cap, a
+  large new device layer) and the nulling resistor `Rz` (a sky130 `xhigh_po`
+  poly resistor). These are the first *passive* devices the leg draws.
+- **Full-amp assembly** — stitch stage 1 + stage 2 + `Cc`/`Rz` into one
+  `miller_ota` cell (the stage-1 output `n2` to the `xm5` gate, `vb` shared).
+- **Post-extraction re-simulation** — run the benches again on the parasitic-
+  extracted netlist, the number that actually decides whether the silicon works.
+- **Rail-tie guard rings** (substrate → VSS, nwell → VDD) replace the bulk
+  *ports* with real body ties.

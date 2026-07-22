@@ -87,3 +87,7 @@ if __name__ == "__main__":
            "PMOS mirror over NMOS input pair over tail/bias; shared nodes "
            "(n1/vout/tail) on met1+li, input gates on li\n"
            "DRC-clean + LVS MATCH to all six transistors", nets=True)
+    render("out_stage", "out_stage — the miller_ota second stage (class-A "
+           "output)\nxm5 PMOS common-source over xm6 NMOS sink, VOUT shared on "
+           "met1; gates VB (left) / N2 (right)\nDRC-clean + LVS MATCH",
+           nets=True)

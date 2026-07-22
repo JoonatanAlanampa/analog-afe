@@ -59,6 +59,13 @@ Mb VB VB VSS VNB sky130_fd_pr__nfet_01v8 L=1u W=10u
 M0 TAIL VB VSS VNB sky130_fd_pr__nfet_01v8 L=1u W=10u
 .ends
 """,
+    # miller_ota stage 2: PMOS common-source (xm5) + NMOS current-sink (xm6)
+    # sharing the output. Scaled W=10; bulks are ports (VNB substrate, VNW well).
+    "out_stage": """.subckt out_stage n2 vb vout vdd vss vnb vnw
+M5 vout n2 vdd vnw sky130_fd_pr__pfet_01v8 L=0.5u W=10u
+M6 vout vb vss vnb sky130_fd_pr__nfet_01v8 L=1u W=10u
+.ends
+""",
     # the whole 5T OTA: bias diode + tail + input pair + PMOS mirror load.
     # Internal nets n1/tail; bulks are ports (VNB substrate, VNW nwell). The
     # scaled W=10 devices match the sub-block refs above.

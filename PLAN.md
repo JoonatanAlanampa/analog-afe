@@ -132,9 +132,18 @@ Console roles (why each block exists):
       real licon stud *inside* the strip (device li stops ~0.27 µm short of the
       nominal edge → an edge via floats; the first attempt lost VDD/VOUT/tail to
       exactly that). `layout/verify.py` green: 9 cells DRC-clean, 6 LVS-matched.
-- [ ] The **second stage** (`xm5`/`xm6` + Cc/Rz), the **bias generator** layout
-      (`biasgen.sp`), then rail-tie guard rings (bulk ports → real body ties),
-      then **post-extraction re-simulation** — the number that decides the silicon.
+- [x] **Second-stage output cell** (`out_stage`, figure
+      `docs/img/layout_out_stage.png`): `xm5` PMOS common-source over `xm6` NMOS
+      current sink, drains shared as `VOUT` — the class-A output stage (same
+      shape as a CMOS inverter). Extracts to `miller_ota.sp` stage 2 —
+      **DRC-clean + LVS MATCH first run** (the 5T-core lessons carried over:
+      via-on-stud-inside-strip, gates out the sides / drains up the centre).
+      Both active stages of the two-stage Miller amp are now laid out + LVS-clean.
+- [ ] The **Miller passives** — `Cc` (~4 pF MIM/MOS cap, new device layer) and
+      `Rz` (`xhigh_po` poly resistor) — the leg's first passives; then the
+      **full-amp assembly** (stage 1 + stage 2 + Cc/Rz → one `miller_ota` cell),
+      then rail-tie guard rings (bulk ports → real body ties), then
+      **post-extraction re-simulation** — the number that decides the silicon.
 
 ## Phase 3 — comparator
 
