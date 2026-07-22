@@ -148,10 +148,18 @@ Console roles (why each block exists):
       `resistor_with_bulk` but its SPICE reader reads `R` as 2-terminal (no
       bulk-resistor reader delegate, unlike the C-VPP path) — so a hand-written
       reference can't pair; extraction (device + value) is the real check.
-- [ ] The **compensation cap Cc** (~4 pF MIM/MOS cap, new device layer) — the
-      other Miller passive; then the **full-amp assembly** (stage 1 + stage 2 +
-      Cc/Rz → one `miller_ota` cell), then rail-tie guard rings (bulk ports →
-      real body ties), then **post-extraction re-simulation** — decides silicon.
+- [x] **Compensation cap Cc** (`cap_cc`, figure `docs/img/layout_cap_cc.png`):
+      a sky130 **MIM** cap (`cap_mim` on met3) — bottom plate met3 (P1), top
+      plate `capm` (89/44, P2) contacted up `via3`→met4. New layers met3/via3/
+      met4/capm. 10×10 µm plate → **~200 fF** (scaled; full 4 pF Cc ~20× area).
+      **DRC-clean + extraction-verified `cap_mim` C=2e-13 F**. Like Rz, it is
+      extraction-verified not LVS-compared (the reader delegate only names VPP
+      caps; a MIM cap reads back as a generic `C` with a forced default value).
+      `run_passive_extract.py` (Rz+Cc) wired into `verify.py`. **Every device of
+      the miller_ota now exists in layout.**
+- [ ] The **full-amp assembly** (stage 1 + stage 2 + Cc/Rz → one `miller_ota`
+      cell), then rail-tie guard rings (bulk ports → real body ties), then
+      **post-extraction re-simulation** — the number that decides the silicon.
 
 ## Phase 3 — comparator
 

@@ -32,6 +32,13 @@ MET2 = (69, 20)
 MET2LBL = (69, 5)
 POLY_RES = (66, 13)      # poly-resistor body marker (defines the resistive run)
 URPM = (79, 20)          # 2k-ohm (xhigh) poly-resistor implant
+VIA2 = (69, 44)          # met2 <-> met3 via
+MET3 = (70, 20)
+MET3LBL = (70, 5)
+VIA3 = (70, 44)          # met3 <-> met4 via (also the MIM top-plate contact)
+MET4 = (71, 20)
+MET4LBL = (71, 5)
+CAPM = (89, 44)          # MIM top plate (cap metal, on metal3)
 BND = (235, 4)
 
 # rule-derived dimensions (um), matched to the clean stdcells cells

@@ -28,6 +28,10 @@ STYLE = [
     (D.POLY_RES, "#f0d000", 0.40, "poly_res"),
     (D.LI, "#b8931e", 0.50, "li"),
     (D.MET1, "#1e3ac0", 0.45, "met1"),
+    (D.MET3, "#3a6ac0", 0.35, "met3"),
+    (D.CAPM, "#d04878", 0.45, "capm (MIM)"),
+    (D.VIA3, "#303030", 0.90, "via3"),
+    (D.MET4, "#20a090", 0.40, "met4"),
     (D.LICON, "#111111", 0.95, "licon"),
     (D.MCON, "#5a5a5a", 0.95, "mcon"),
 ]
@@ -97,3 +101,7 @@ if __name__ == "__main__":
            "resistor)\npoly body under poly_res+urpm+psdm, W=0.69 L=3.45 (5 sq)"
            "; contacted at each end (P/M)\nDRC-clean + extraction-verified: "
            "R=10000 ohm", nets=True)
+    render("cap_cc", "cap_cc — the Miller compensation cap Cc (MIM cap on met3)\n"
+           "bottom plate met3 (P1), top plate capm (P2) contacted up via3->met4;"
+           " 10x10 um -> ~200 fF\nDRC-clean + extraction-verified: cap_mim "
+           "C=2e-13 F", nets=True)

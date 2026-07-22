@@ -108,6 +108,7 @@ local — so nothing has to cross. It extracts to two W=10 PMOS, xm3 diode-tied 
 | `ota5t_core` (whole 5T OTA: 6 devices, 3 strips, routed) | **CLEAN** | **MATCH** |
 | `out_stage` (miller stage 2: PMOS CS + NMOS sink, class-A) | **CLEAN** | **MATCH** |
 | `res_rz` (xhigh_po poly resistor, ~10 kΩ) | **CLEAN** | **R=10 kΩ ✓** (extract) |
+| `cap_cc` (MIM cap on met3, ~200 fF) | **CLEAN** | **C=200 fF ✓** (extract) |
 
 **All three sub-blocks of the 5T OTA — the NMOS input pair, the PMOS mirror
 load, and the NMOS tail/bias — are laid out and verified as the right circuit,
@@ -181,27 +182,46 @@ is declared resistive by the `poly_res` (66/13) marker, wrapped in the `urpm`
 width and 3.45 µm length that is **5 squares × 2000 Ω/sq = 10 kΩ**, and the
 extractor confirms it exactly.
 
-**On its verification — a real deck asymmetry, named honestly.** `res_rz` is not
-in the LVS *compare* set; it is checked by *extraction* (`run_res_extract.py`,
-wired into `verify.py`). The reason is a genuine limitation: the sky130 KLayout
-deck **extracts** the precision poly resistor as a **3-terminal**
-`resistor_with_bulk` device, but its SPICE **reader** parses `R` cards as only
-**2-terminal** — there is a reader delegate that builds a 3-terminal
-capacitor-with-bulk for the VPP caps, but none for a bulk resistor. So a
-hand-written schematic reference cannot be paired against the extraction no
-matter how it is written. Extraction is the meaningful check for a passive
-anyway: it confirms the drawn geometry *is* a `sky130_fd_pr__res_xhigh_po_0p69`
-**and** measures it at **R = 10000 Ω**, which is exactly what matters for a
-resistor whose value is the spec.
+## The compensation cap Cc — the MIM capacitor
+
+![The Miller compensation cap: a met3 bottom plate (P1) with a capm top plate (the MIM), the top plate contacted upward through a via3 to a met4 pad (P2). 10x10um plate, ~200 fF. DRC-clean and extraction-verified at C=2e-13 F.](img/layout_cap_cc.png)
+
+`cap_cc` is the **compensation cap** `Cc` — a sky130 **MIM** (metal-insulator-
+metal) capacitor, the linear cap a Miller amplifier wants. The bottom plate is
+`met3` (`P1`); the top plate is `capm` (89/44) sitting on it with the MIM
+dielectric between (`P2`), contacted *upward* through a `via3` to a `met4` pad.
+The connectivity has a subtlety the deck handles cleanly: `connect(met3_ncap,
+via3)` bonds a via to met3 only *outside* the top plate, while `connect(capm,
+via3)` bonds the top-plate via to `capm` — so a `via3` dropped on `capm` reaches
+`capm → met4` (P2) and never the `met3` bottom plate under it. The 10×10 µm plate
+is a scaled demonstration at **~200 fF** (the full 4 pF `Cc` is ~20× this area);
+the extractor confirms `sky130_fd_pr__model__cap_mim` at **C = 2e-13 F**.
+
+## On verifying the passives — a real deck asymmetry, named honestly
+
+Neither passive is in the LVS *compare* set; both are checked by *extraction*
+(`run_passive_extract.py`, wired into `verify.py`), and that is a deliberate,
+documented choice, not a shortcut. The sky130 KLayout deck's SPICE **reader
+delegate** only builds properly *named* device classes for the devices it handles
+explicitly — MOS, the VPP capacitors, inductors. A precision **poly resistor** is
+extracted as a **3-terminal** `resistor_with_bulk` but read back as a 2-terminal
+`R` (there is a 3-terminal reader path for the VPP caps, but none for a bulk
+resistor). A **MIM cap** is 2-terminal, but it falls through to a *generic* `C`
+class (only VPP caps get the model name) and the delegate also force-appends a
+default `C=2e-16` that overrides any value written. So neither can be paired by a
+hand-written reference, however it is phrased — I confirmed this empirically
+before concluding it. Extraction is the meaningful check for a passive anyway: it
+confirms the drawn geometry **is** the intended PDK device *and* measures its
+value (`res_xhigh_po_0p69` @ **R = 10000 Ω**; `cap_mim` @ **C = 2e-13 F**), which
+is exactly what matters for devices whose value is the spec.
 
 ## What's next
 
 Both active stages of the two-stage Miller amplifier are laid out and LVS-clean
-(5T core + output stage), and the first passive (`Rz`) is drawn and value-
-verified. What remains of the amplifier layout:
+(5T core + output stage), and **both passives** (`Rz`, `Cc`) are drawn and
+value-verified. Every *device* of the `miller_ota` now exists in layout. What
+remains:
 
-- **The compensation cap `Cc`** — the other Miller passive, a ~4 pF MIM or MOS
-  cap (a large new device layer).
 - **Full-amp assembly** — stitch stage 1 + stage 2 + `Cc`/`Rz` into one
   `miller_ota` cell (the stage-1 output `n2` to the `xm5` gate, `vb` shared).
 - **Post-extraction re-simulation** — run the benches again on the parasitic-

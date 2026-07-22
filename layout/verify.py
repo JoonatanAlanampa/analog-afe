@@ -28,9 +28,9 @@ if __name__ == "__main__":
     drc = sh("run_drc.py")
     print("=== LVS (sky130.lvs) ===")
     lvs = sh("run_lvs.py")
-    print("=== RES extract (xhigh_po, extraction-verified) ===")
-    res = sh("run_res_extract.py")
-    if drc or lvs or res:
+    print("=== passive extract (Rz, Cc — extraction-verified) ===")
+    passives = sh("run_passive_extract.py")
+    if drc or lvs or passives:
         sys.exit("layout regression FAILED")
     print("\nLAYOUT REGRESSION CLEAN — all cells DRC-clean, all LVS matched, "
-          "res_rz extract-verified")
+          "passives (Rz/Cc) extract-verified")

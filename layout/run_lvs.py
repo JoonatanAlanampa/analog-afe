@@ -59,12 +59,16 @@ Mb VB VB VSS VNB sky130_fd_pr__nfet_01v8 L=1u W=10u
 M0 TAIL VB VSS VNB sky130_fd_pr__nfet_01v8 L=1u W=10u
 .ends
 """,
-    # NOTE: res_rz (the xhigh_po poly resistor) is intentionally NOT here. The
-    # deck EXTRACTS it correctly as sky130_fd_pr__res_xhigh_po_0p69 at R=10000,
-    # but it extracts a 3-terminal `resistor_with_bulk` while the deck's SPICE
-    # reader reads `R` cards as 2-terminal (no bulk-resistor reader delegate,
-    # unlike the C-VPP path) -- so a hand-written reference cannot be paired.
-    # res_rz is verified DRC-clean + by extraction (see run_res_extract.py).
+    # NOTE: the passives res_rz (poly resistor) and cap_cc (MIM cap) are NOT
+    # here -- they are extraction-verified instead (run_passive_extract.py). Both
+    # EXTRACT correctly (res_xhigh_po_0p69 @ R=10000; cap_mim @ C=2e-13), but the
+    # deck's SPICE reader delegate only builds properly *named* device classes
+    # for the devices it handles explicitly (MOS, VPP caps, inductors). A poly
+    # resistor is read as a 2-terminal `R` (no bulk-resistor path, while it is
+    # extracted as 3-terminal resistor_with_bulk); a MIM cap falls through to a
+    # generic `C` class (only VPP caps get the model name) and the delegate also
+    # force-appends a default C=2e-16. So neither can be paired by a hand-written
+    # reference. Extraction (device class + value) is the real check for a passive.
     # miller_ota stage 2: PMOS common-source (xm5) + NMOS current-sink (xm6)
     # sharing the output. Scaled W=10; bulks are ports (VNB substrate, VNW well).
     "out_stage": """.subckt out_stage n2 vb vout vdd vss vnb vnw

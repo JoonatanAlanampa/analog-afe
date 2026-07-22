@@ -417,6 +417,30 @@ def build_res_rz():
     term("M", ytot - 0.3)
     _write(c)
 
+    build_cap_cc()
+
+
+def build_cap_cc():
+    """The Miller compensation cap Cc -- a sky130 MIM capacitor (cap_mim on
+    metal3). The bottom plate is met3 (P1); the top plate is capm (89/44, P2),
+    contacted UP through via3 to a met4 pad -- the MIM dielectric between capm and
+    met3 IS the capacitor. Unlike the poly resistor this is a 2-terminal device,
+    so it LVS-compares as a plain C. capm 10x10 um ~= 200 fF here: a scaled
+    demonstration (the full 4 pF Cc is ~20x this plate area)."""
+    c = gdstk.Cell("cap_cc")
+    # top plate (capm), 10x10 -> the cap area
+    D._r(c, D.CAPM, 2.0, 2.0, 12.0, 12.0)
+    # bottom plate (met3): encloses capm by >=0.14 and extends left for the P1
+    # terminal (met3 outside capm = met3_ncap, where a met3 label attaches)
+    D._r(c, D.MET3, 0.5, 1.8, 12.2, 12.2)
+    D.label(c, "P1", 1.15, 7.0, layer=D.MET3LBL)
+    # top-plate contact: via3 on capm up to a met4 pad = P2 (capm/via3/met4 are
+    # one net; via3 over capm bonds to capm, never the met3 under it)
+    D._r(c, D.VIA3, 6.9, 6.9, 7.1, 7.1)
+    D._r(c, D.MET4, 6.4, 6.4, 7.6, 7.6)
+    D.label(c, "P2", 7.0, 7.0, layer=D.MET4LBL)
+    _write(c)
+
 
 if __name__ == "__main__":
     build()
