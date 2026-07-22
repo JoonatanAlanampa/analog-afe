@@ -110,10 +110,16 @@ Console roles (why each block exists):
       OTA's common-centroid current-mirror load (xm3 diode + xm4) — DRC-clean +
       **LVS MATCH** to two W=10 PMOS (figure `docs/img/layout_pmos_mirror.png`).
       Both of the OTA's matching pairs are now laid out AND circuit-verified.
-- [ ] The **5T core**: place the input pair + mirror + tail + bias diode and
-      route the internal nodes (n1/tail/vout); then the second stage + the bias
-      generator, then **post-extraction re-simulation** — the number that
-      decides the silicon. Post-layout is where analog designs go to die.
+- [x] **Tail/bias current source** (`tail_bias`): the OTA's xm0/xmb as an NMOS
+      current mirror — DRC-clean + **LVS MATCH** (reused the mirror pattern, all
+      first try). All three 5T sub-blocks now done both ways; `layout/verify.py`
+      runs the whole build→DRC→LVS regression green (7 cells, 5 LVS-matched).
+- [ ] The **5T core**: place the three sub-blocks (mirror over input pair over
+      tail) and route the shared nodes (n1, vout, tail, vb). Needs a **met2**
+      layer — each sub-block fits on li+met1 (≤5 nets, few directions) but the
+      assembled core's ~7 nets exit in every direction; add met2 to `device.py`.
+      Then the second stage + bias generator, then **post-extraction
+      re-simulation** — the number that decides the silicon.
 
 ## Phase 3 — comparator
 

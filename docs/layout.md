@@ -18,12 +18,12 @@ All gdstk (Python) → GDS → KLayout DRC, no GUI:
 | `layout/build.py` | draws the cells to `layout/out/*.gds` |
 | `layout/run_drc.py` | KLayout batch DRC (`sky130A_mr.drc`, feol+beol+offgrid), parses the `.lyrdb` |
 | `layout/run_lvs.py` | KLayout LVS (`sky130.lvs`, patched for device-class case) vs a reference netlist |
+| `layout/verify.py` | one-command regression: build → DRC all → LVS all (the `tb/run.py` of the layout side) |
 | `layout/plot.py` | renders a cell to a layer-coloured PNG for these docs |
 
 ```sh
-python layout/build.py && python layout/run_drc.py     # geometry -> "CLEAN"
-python layout/run_lvs.py                               # circuit  -> "MATCH"
-python layout/plot.py                                  # -> docs/img/
+python layout/verify.py         # build + DRC-all + LVS-all -> "REGRESSION CLEAN"
+python layout/plot.py           # -> docs/img/
 ```
 
 The KLayout binary and the deck are the same ones the `stdcells` leg uses
@@ -103,17 +103,22 @@ local — so nothing has to cross. It extracts to two W=10 PMOS, xm3 diode-tied 
 | `cc_pair` (D A B B A D + p-tap guard ring) | **CLEAN** | — (matching-structure demo) |
 | `cc_diff` (A B B A routed NMOS input pair) | **CLEAN** | **MATCH** |
 | `pmos_mirror` (A B B A routed PMOS mirror load) | **CLEAN** | **MATCH** |
+| `tail_bias` (NMOS mirror: tail source + bias diode) | **CLEAN** | **MATCH** |
 
-Both of the OTA's matching-critical pairs — the NMOS input pair and the PMOS
-mirror load — are now laid out **and** verified as the right circuit. Lessons
-banked: mirroring the proven `stdcells` dimensions gets a device clean first
-try; a li-connected tap ring beats stacking mcon on licon (74 `ct.2`); and once
-the net *topology* is right (S/D and gates routed to layers/levels that can't
-collide) LVS matches first try — every routed cell's only DRC fixes were
-sub-0.2 µm connectivity near-misses, never topology.
+**All three sub-blocks of the 5T OTA — the NMOS input pair, the PMOS mirror
+load, and the NMOS tail/bias — are now laid out and verified as the right
+circuit.** Lessons banked: mirroring the proven `stdcells` dimensions gets a
+device clean first try; a li-connected tap ring beats stacking mcon on licon
+(74 `ct.2`); and once the net *topology* is right (S/D and gates routed to
+layers/levels that can't collide) LVS matches first try — every routed cell's
+only DRC fixes were sub-0.2 µm connectivity near-misses, never topology.
 
-Next: **the 5T core** — place the input pair and the mirror together, add the
-tail current source and the bias diode, and route the internal nodes (n1, tail,
-vout); then the second stage and the bias generator; and finally
-**post-extraction re-simulation**, the number that actually decides whether the
-silicon works.
+Next: **stitch the three into the 5T core** — place the mirror above the input
+pair above the tail, and route the shared nodes (n1 from the input drain to the
+mirror diode, vout, tail). One honest constraint has shown up here: each
+sub-block fits on two routing layers (li + met1) because its ≤ 5 nets exit in a
+few clean directions, but the assembled core has ~7 nets (vinp, vinn, n1, vout,
+tail, vb, plus the vdd/vss rails) leaving in every direction at once — that
+needs a **second metal (met2)**, the next capability to add to `device.py`.
+Then the second stage and the bias generator, and finally **post-extraction
+re-simulation**, the number that actually decides whether the silicon works.

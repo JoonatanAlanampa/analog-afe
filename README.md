@@ -26,9 +26,10 @@ THD was found **failing** at the 1 V pp spec swing (1.44 %) and is now
 bench pinned the residual-distortion floor to the input pair (not the output),
 and a **constant-gm bias generator with a verified start-up** now replaces the
 ideal current source ([`docs/biasgen.md`](docs/biasgen.md)). **Phase 2 (layout)
-is under way** — the flow is stood up and **both of the OTA's matching pairs**
-(the NMOS input pair and the PMOS mirror load) are drawn, routed, and
-**LVS-clean**, each extracting to exactly its schematic
+is under way** — the flow is stood up and **all three of the 5T OTA's
+sub-blocks** (the NMOS input pair, the PMOS mirror load, and the NMOS tail/bias)
+are drawn, routed, and **LVS-clean**, each extracting to exactly its schematic;
+`layout/verify.py` runs the whole DRC + LVS regression green
 ([`docs/layout.md`](docs/layout.md)).
 
 ## The block under design

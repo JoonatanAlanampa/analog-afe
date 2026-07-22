@@ -155,6 +155,38 @@ def build_pmos_mirror():
     D.label(c, "N1", col[0], ny)
     _write(c)
 
+    build_tail_bias()
+
+
+def build_tail_bias():
+    """The OTA's tail current source + bias diode (xm0/xmb) -- an NMOS current
+    mirror, same shape as pmos_mirror but NMOS: xmb diode-connected sets VB,
+    xm0 mirrors it to sink the tail. VB (all gates + the xmb drains) goes UP,
+    VSS (sources) DOWN, TAIL (xm0 drain) local; substrate bulk is a port."""
+    c = gdstk.Cell("tail_bias")
+    y0, W, L = 2.0, 5.0, 1.0
+    fp = D.fet(c, 2.0, y0, W=W, L=L, nf=4, kind="n")
+    col, g = fp["sds"], fp["gates"]
+    ytop = y0 + W + 0.13
+    yin = y0 + 0.25
+
+    D.label(c, "TAIL", col[2], y0 + W / 2)          # xm0 drain, local
+
+    vy = y0 - 0.55                                   # VSS: col1,col3 down
+    for x in (col[1], col[3]):
+        D.strap(c, x - 0.085, vy, x + 0.085, yin)
+    D.strap(c, col[1] - 0.085, vy, col[3] + 0.085, vy + 0.17)
+    D.label(c, "VSS", col[1], vy + 0.085)
+
+    ny = None                                        # VB: gates + col0,col4 up
+    for x in g:
+        _gx, ny = D.poly_contact(c, x, L, ytop, up=0.5)
+    for x in (col[0], col[4]):
+        D.strap(c, x - 0.085, y0 + W - 0.3, x + 0.085, ny + 0.085)
+    D.strap(c, col[0] - 0.085, ny - 0.085, col[4] + 0.085, ny + 0.085)
+    D.label(c, "VB", col[0], ny)
+    _write(c)
+
 
 if __name__ == "__main__":
     build()

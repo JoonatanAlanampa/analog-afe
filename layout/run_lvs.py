@@ -53,6 +53,12 @@ M3 N1 N1 VDD VNW sky130_fd_pr__pfet_01v8 L=1u W=10u
 M4 VOUT N1 VDD VNW sky130_fd_pr__pfet_01v8 L=1u W=10u
 .ends
 """,
+    # NMOS current mirror: xmb diode sets VB, xm0 mirrors it to sink the tail.
+    "tail_bias": """.subckt tail_bias VB TAIL VSS VNB
+Mb VB VB VSS VNB sky130_fd_pr__nfet_01v8 L=1u W=10u
+M0 TAIL VB VSS VNB sky130_fd_pr__nfet_01v8 L=1u W=10u
+.ends
+""",
 }
 
 
