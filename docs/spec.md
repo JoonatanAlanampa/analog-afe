@@ -35,12 +35,15 @@ disturb.
 | 9 | Slew rate | ≥ 0.1 V/µs | 1 V pp at 20 kHz needs 2π·20k·0.5 = 0.063 V/µs; ~60 % margin |
 | 10 | PSRR at 1 kHz | ≥ 40 dB | it shares a die with a CPU, a QSPI controller and video timing |
 | 11 | Quiescent current | ≤ 200 µA | budget, not a derivation — revisit when the DAC's is known |
-| 12 | THD | **≤ 0.2 %** at 1 V pp, 1 kHz (line-level; 0.1 % aspiration needs class-AB) | **0.167 % — MEETS** at the co-designed fix (×2.5 output, Cc 4p / Rz 10k), corner-verified PM ≥ 75.6°, I_q ≤ 174 µA; shipped ×1 was 1.44 % (`docs/thd.md`, `corners.md`, design-notes §12) |
+| 12 | THD | **≤ 0.2 %** at 1 V pp, 1 kHz (line-level; 0.1 % aspiration needs a wider-ICMR input, §13 — not class-AB) | **0.167 % — MEETS** at the co-designed fix (×2.5 output, Cc 4p / Rz 10k), corner-verified PM ≥ 75.6°, I_q ≤ 174 µA; shipped ×1 was 1.44 % (`docs/thd.md`, `corners.md`, design-notes §12) |
 | 13 | Input-referred noise | < 100 µV rms, 20 Hz–20 kHz | measured **24.3 µV — PASS** (~4× margin, ~83 dB SNR; `docs/noise.md`) |
+| 14 | CMRR | ≥ 60 dB | measured **68.7 dB — PASS** (flat over the audio band, a first-stage property; `docs/cmrr.md`) |
+| 15 | ICMR | cover the 0.4–1.4 V a 1 V pp swing needs | **0.30–1.10 V functional; input pair triodes at 1.40 V** — the high peak is the swing cap and the source of row 12's residual (`docs/cmrr.md`, §13) |
 
 Targets 1–11 are checked by `tb/run.py`; 5, 7, 8, 10 and 9 are asserted
 in `SPEC` in `tb/run.py` and print PASS/FAIL in `docs/results.md`. Rows 12
-(THD, `tb/thd.py`) and 13 (noise, `tb/noise.py`) have their own benches.
+(THD, `tb/thd.py`), 13 (noise, `tb/noise.py`) and 14–15 (CMRR/ICMR,
+`tb/cmrr.py`) have their own benches.
 
 **Row 12 — found failing, now fixed.** The topology review's Call 2 asked to
 stop using open-loop gain (row 5) as a distortion proxy and measure THD
@@ -50,8 +53,12 @@ source only to ~0.75 V pp. The fix (`docs/thd.md`, design-notes §12)
 co-designs output current and compensation — **×2.5 output, Cc 4 pF /
 Rz 10 kΩ → 0.167 % THD**, corner-verified to PM ≥ 75.6° and I_q ≤ 174 µA — an
 8.6× improvement that clears the target with margin. The review's 0.1 %
-aspiration is a class-A *budget* limit (0.1 % needs I_q > 200 µA) and would
-take a class-AB output stage. Call 2's separate row-5 gain relaxation (accept
+aspiration is **not** reachable by more output current: the CMRR/ICMR bench
+(row 15, design-notes §13) shows the fix's residual 0.167 % is the input pair
+leaving its common-mode range on the high half of the swing (it triodes at
+1.40 V, the swing peak), so ≤ 0.1 % at full 1 V pp needs a wider-ICMR *input*
+or a smaller swing — not a class-AB output. Call 2's separate row-5 gain
+relaxation (accept
 56.8 dB, still asserted ≥ 60 in `tb/run.py`) is a tracked follow-up — eased
 anyway, since the fix's loaded gain is 62–65 dB.
 

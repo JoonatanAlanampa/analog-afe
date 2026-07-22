@@ -340,9 +340,11 @@ def write(res):
                  "separate cleanly: **Rz 20k→10k is the phase-margin lever** "
                  "(it cuts the feedforward that pushes the UGF up — §7 — and "
                  "costs nothing in THD), **pout is the THD lever**. The "
-                 "review's 0.1 % is not reachable for a class-A stage in "
-                 "budget (needs pout ≥ 3, I_q > 200 µA); that last 1.7× is a "
-                 "class-AB output — see `design-notes.md` §12.\n")
+                 "review's 0.1 % is *not* reachable by more output current at "
+                 "all: the ICMR bench (`design-notes.md` §13) shows the "
+                 "0.167 % residual is the input pair leaving its common-mode "
+                 "range on the high swing (it triodes at the 1.40 V peak), so "
+                 "≤ 0.1 % needs a wider-ICMR input or a smaller swing.\n")
 
     p = Path(ROOT / "docs" / "thd.md")
     p.write_text("\n".join(L) + "\n", encoding="utf-8")

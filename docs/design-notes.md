@@ -461,12 +461,71 @@ So the shortfall is fixed: **8.6× better THD**, clearing the old < 1 % row by
 [`corners.md`](corners.md); the two-panel figure is
 [`img/thd.png`](img/thd.png).
 
-**What it does not reach, and why that is a device limit, not a design miss.**
-The review's 0.1 % is out of reach for a *class-A* output stage in this
-budget: 0.1 % needs pout ≥ 3, i.e. I_q > 200 µA. The last 1.7× is a
-**class-AB output** — and Call 4 ruled class-AB out only for *driving* 32 Ω
-(the 4 mA pad), NOT for *linearity* into the line load, so it is a legitimate
-future option, named here as the path to 0.1 % if the console ever wants it.
-At 0.167 % the buffer is already ~35 dB below the distortion 8-bit-era
-console source material carries, so for this application the fix is
-comfortably sufficient.
+**What it does not reach — and §13 corrects why.** The review's 0.1 % is out
+of reach at the full 1 V pp swing, and the reason is **not** the output
+stage. The CMRR/ICMR bench (§13) shows the residual 0.167 % is the INPUT pair
+running out of common-mode range on the high half: xm2 triodes at 1.40 V —
+exactly the swing peak — and THD at this same fix point collapses to
+0.0045 % once the swing stays inside ICMR (0.4 V pp). More output current
+cannot touch that floor, so the path to ≤ 0.1 % at 1 V pp is a wider-ICMR
+*input* (rail-to-rail / complementary pair), or a smaller swing — **not** a
+class-AB output. (An earlier version of this note guessed a class-AB output;
+the ICMR measurement overturned it — the residual is input-side.) At 0.167 %
+the buffer is already ~35 dB below the distortion 8-bit-era console source
+material carries, so for this application the fix is comfortably sufficient.
+
+## 13. Common-mode — CMRR is a first-stage property, and ICMR is what actually caps the swing
+
+`tb/cmrr.py` measures the two common-mode characterisations, and both land
+somewhere more interesting than a pass/fail — because in a unity-gain buffer
+the input common mode **is** the signal (it swings with the output).
+
+**CMRR = 68.7 dB, flat across the audio band, and identical at the shipped
+and fix operating points.** That last part is the finding. CMRR = A_dm/A_cm,
+and *both* ride the second stage, so scaling the output — which lifts A_dm
+from 56.8 to 63.5 dB — lifts A_cm by exactly the same amount (−11.8 → −5.2 dB)
+and the ratio does not move. CMRR is set by the **first** stage's rejection;
+the output fix is invisible to it. 68.7 dB is comfortable for a line buffer.
+
+**ICMR is asymmetric, and the asymmetry is the whole THD story.** Sweeping
+the input common mode (= output, in unity gain) at the fix point: peak
+open-loop gain 64.3 dB, and the gain holds within 3 dB over ~0.30–1.10 V. But
+the two edges fail for different reasons:
+
+- **low side:** the tail is already in triode below ~0.70 V, yet the gain
+  holds down to ~0.30 V (the pair keeps working through a triode tail), so
+  the 0.40 V output trough of a 1 V pp swing sits at PEAK gain;
+- **high side:** the input pair itself (xm2) runs out of headroom as the tail
+  node rises, and triodes at **1.40 V — exactly the peak of a 1 V pp swing.**
+
+So the 0.40–1.40 V a 1 V pp output demands is covered on the low side and
+hits the wall on the high side. That splits §11/§12's THD number into two
+mechanisms on opposite half-cycles:
+
+| | mechanism | device | fixed by |
+|---|---|---|---|
+| shipped 1.44 % | low-side output sink runs out of pull | xm6 (61.5 µA) | scaling the output stage (§12) |
+| fix residual 0.167 % | high-side input pair leaves saturation | xm1/xm2 ICMR | **not** output current |
+
+**Confirmed, not inferred.** THD at the fix point vs swing:
+
+| swing | output range | THD |
+|---|---|---|
+| 0.4 V pp | 0.70–1.10 V (inside ICMR) | **0.0045 %** |
+| 0.6 V pp | 0.60–1.20 V | 0.032 % |
+| 0.8 V pp | 0.50–1.30 V | 0.082 % |
+| 1.0 V pp | 0.40–**1.40 V** (peak at the triode) | 0.167 % |
+| 1.2 V pp | 0.30–1.50 V (past ICMR) | 1.19 % |
+
+At 0.4 V pp the buffer is **37× cleaner** than at 1 V pp. The residual floor
+is a *swing* limit set by the input ICMR, not a current one — which is why
+the drive sweep (§11) plateaued at ~0.17–0.22 % for pout ≥ 2 no matter how
+much output current it was given. **The consequence for §12:** ≤ 0.1 % at the
+full 1 V pp needs a wider-ICMR input (a rail-to-rail or complementary
+NMOS+PMOS pair), or a spec that accepts a smaller swing — 0.8 V pp already
+buys 0.082 %. It does *not* need, and would not get, a class-AB output.
+
+The general lesson, again this repo's: a distortion number is a composite,
+and it is worth splitting by *which device on which half-cycle* before
+prescribing a fix. Here the two halves had different culprits, and the output
+fix that cured one was blind to the other.

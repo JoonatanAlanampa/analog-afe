@@ -19,10 +19,12 @@ never makes you think about: biasing, matching, noise, offset, headroom.
 is done and the topology **decision is made** — two-stage Miller for the
 audio buffer, the 5T OTA kept for the high-Z comparator/SAR blocks
 ([`docs/topology-review.md`](docs/topology-review.md)). Phase-1
-characterisation: noise and PVT corners pass; THD was found **failing** at
-the 1 V pp spec swing (1.44 %) and is now **fixed** — a co-designed output
-stage + compensation retune, corner-verified, **8.6× better**
-([see below](#the-gap-that-measurement-found--thd)). CMRR and ICMR remain.
+characterisation: noise, PVT corners, CMRR (68.7 dB) all pass; THD was found
+**failing** at the 1 V pp spec swing (1.44 %) and is now **fixed** — a
+co-designed output stage + compensation retune, corner-verified, **8.6×
+better** ([see below](#the-gap-that-measurement-found--thd)) — and the ICMR
+bench pinned the residual-distortion floor to the input pair, not the output.
+Bias generator and the TT analog-slot resolution (O1) remain.
 
 ## The block under design
 
@@ -122,13 +124,14 @@ python tb/sweep_comp.py line --report   # re-render from cached data
 python tb/noise.py               # input-referred noise -> docs/noise.md
 python tb/corners.py             # PVT corners + Monte Carlo offset -> docs/corners.md
 python tb/thd.py                 # THD vs level / freq / topology / drive -> docs/thd.md
+python tb/cmrr.py                # CMRR + ICMR (+ the ICMR/THD cross-check) -> docs/cmrr.md
 ```
 
 Results: [`docs/results.md`](docs/results.md),
 [`docs/compensation.md`](docs/compensation.md),
-[`docs/noise.md`](docs/noise.md) and
-[`docs/corners.md`](docs/corners.md). Spec targets are asserted
-in `SPEC` in `tb/run.py` and print PASS/FAIL per row.
+[`docs/noise.md`](docs/noise.md), [`docs/corners.md`](docs/corners.md),
+[`docs/thd.md`](docs/thd.md) and [`docs/cmrr.md`](docs/cmrr.md). Spec targets
+are asserted in `SPEC` in `tb/run.py` and print PASS/FAIL per row.
 
 ## For the reviewer
 
@@ -195,14 +198,21 @@ So output current and compensation have to be co-designed. The search
 > margin than the shipped design.
 
 `Rz 20k → 10k` is the phase-margin lever (it cuts the feedforward that was
-pushing the UGF up), `pout` is the THD lever. The review's 0.1 % aspiration
-is a *class-A budget* limit, not a compensation one — it needs I_q > 200 µA;
-the last 1.7× is a class-AB output stage, which the 4 mA pad rules out only
-for *driving* headphones, not for *linearity* into a line load. At 0.167 %
-the buffer is already ~35 dB quieter in distortion than 8-bit console audio
-can use.
+pushing the UGF up), `pout` is the THD lever. The last factor to 0.1 % turned
+out **not** to be an output problem at all: the CMRR/ICMR bench
+([`docs/cmrr.md`](docs/cmrr.md)) showed the fix's residual is the **input
+pair** running out of common-mode range on the high half of the swing — it
+triodes right at the 1.40 V peak of a 1 V pp output. THD at the fix collapses
+to **0.0045 % at 0.4 V pp** (37× cleaner), so reaching 0.1 % at full swing
+needs a wider-ICMR input, not more output current. At 0.167 % the buffer is
+already ~35 dB quieter in distortion than 8-bit console audio can use. (CMRR
+itself is 68.7 dB, flat across the band — a first-stage property the output
+fix leaves untouched.)
 
 ## Next
 
-The rest of phase 1: **CMRR** and **input-common-mode range** — the THD fix
-above is applied and corner-verified. Full roadmap in [`PLAN.md`](PLAN.md).
+Phase 1's open items: the **bias generator** (constant-gm with start-up,
+replacing the ideal external current source) and resolving the **TT
+analog-slot supply domain** (O1). A wider-ICMR input (rail-to-rail /
+complementary pair) is the noted path if the console ever wants THD below
+0.1 % at the full swing. Full roadmap in [`PLAN.md`](PLAN.md).

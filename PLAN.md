@@ -56,9 +56,15 @@ Console roles (why each block exists):
       worst-corner PM 75.6°, UGF ≥ 8.73 MHz, I_q ≤ 174 µA — meets spec with
       margin and *more* PM headroom than the shipped design. `Rz 20k→10k` is
       the phase-margin lever (cuts the §7 feedforward), `pout` the THD lever.
-      The review's 0.1 % is a class-A budget limit (needs I_q > 200 µA) → a
-      class-AB output is the named path if ever wanted.
-- [ ] CMRR, input common-mode range (ICMR) sweep
+- [x] **CMRR + ICMR** (`tb/cmrr.py` -> `docs/cmrr.md`, design-notes §13).
+      CMRR **68.7 dB** (flat, a first-stage property — PASS). ICMR sweep
+      settled the 0.1 % question and **corrected the class-AB guess above**:
+      the fix's 0.167 % residual is the INPUT pair leaving its common-mode
+      range on the high half of the swing (xm2 triodes at 1.40 V = the 1 V pp
+      peak), NOT the output stage. Confirmed by THD-vs-swing at the fix
+      (0.0045 % at 0.4 V pp, 37× cleaner). So ≤ 0.1 % at full 1 V pp needs a
+      **wider-ICMR input** (rail-to-rail / complementary pair) or a smaller
+      swing — more output current cannot reach it.
 - [x] **Corners: ss/ff/sf/fs × −40/25/85 °C ± 10 % supply, and Monte
       Carlo offset** (`tb/corners.py` -> `docs/corners.md`). Settled the
       compensation call: the Rz = 20 k lead point is the MOST corner-

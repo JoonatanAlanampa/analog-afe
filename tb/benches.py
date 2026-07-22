@@ -221,6 +221,68 @@ wrdata {tag}.txt v(vout)
     return out
 
 
+# -------------------------------------------------------------- cmrr ----
+def bench_cmrr(topo, load, params="", tag_extra=""):
+    """Common-mode rejection = differential gain / common-mode gain, at DC,
+    1 kHz and 20 kHz.
+
+    Both gains are open-loop AC with the DC operating point held by the same
+    1 GH feedback inductor `bench_ac` uses, so the amp is measured where it
+    actually runs. The ONLY difference between the two runs is where the AC
+    goes:
+      - differential: inject into the inverting input alone (`cinj vac->vinn`),
+        exactly `bench_ac`'s stimulus -> |A_dm|.
+      - common-mode: drive the non-inverting input with the AC AND couple the
+        same AC into the inverting one (`cinj vinp->vinn`), so the
+        differential stimulus is zero and only the common mode moves the
+        output -> |A_cm|.
+    CMRR(f) = 20·log10(|A_dm| / |A_cm|). Deliberately NOT in the run.py
+    BENCHES dict -- CMRR has its own script (tb/cmrr.py), so results.md is
+    untouched.
+    """
+    def gains(mode):
+        tag = f"cmrr{mode}_{topo}_{load}{tag_extra}"
+        if mode == "cm":
+            src = f"vcm vinp 0 dc {vcm()} ac 1"
+            inj = "cinj vinp vinn 1e9"      # couple the CM into BOTH inputs
+        else:
+            src = f"vcm vinp 0 dc {vcm()}\nvac vac 0 dc 0 ac 1"
+            inj = "cinj vac vinn 1e9"       # differential, into vinn alone
+        net = f"""* {topo} {mode} AC, load={load} {params}
+{_preamble(topo, load, params=params)}
+{src}
+lfb vout vinn 1e9
+{inj}
+.ac dec 20 1 1e9
+.control
+run
+wrdata {tag}.txt v(vout)
+.endc
+.end
+"""
+        run_ngspice(net, tag)
+        rows = read_wrdata(OUT / f"{tag}.txt", 3)
+        if len(rows) < 10:
+            return None
+        out = {}
+        for label, freq in (("dc", 1.0), ("1k", 1e3), ("20k", 2e4)):
+            best = min(rows, key=lambda r: abs(math.log10(max(r[0], 1e-12)) -
+                                               math.log10(freq)))
+            mag = math.hypot(best[1], best[2])
+            out[label] = 20 * math.log10(mag) if mag > 0 else -300.0
+        return out
+
+    dm, cm = gains("dm"), gains("cm")
+    if dm is None or cm is None:
+        return dict(error="no AC data")
+    res = {}
+    for label in ("dc", "1k", "20k"):
+        res[f"adm_{label}_db"] = dm[label]
+        res[f"acm_{label}_db"] = cm[label]
+        res[f"cmrr_{label}_db"] = dm[label] - cm[label]
+    return res
+
+
 # -------------------------------------------------------------- tran ----
 def bench_tran(topo, load, params="", tag_extra=""):
     """100 mV step UP and back DOWN, unity gain.
