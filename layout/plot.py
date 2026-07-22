@@ -22,8 +22,10 @@ STYLE = [
     (D.NWELL, "#8f8fe0", 0.18, "nwell"),
     (D.NSDM, "#e58fa0", 0.22, "nsdm (n+)"),
     (D.PSDM, "#8f9fe5", 0.22, "psdm (p+)"),
+    (D.URPM, "#c060c0", 0.22, "urpm (2k impl)"),
     (D.DIFF, "#2ea02e", 0.55, "diff"),
     (D.POLY, "#c0281e", 0.70, "poly (gate)"),
+    (D.POLY_RES, "#f0d000", 0.40, "poly_res"),
     (D.LI, "#b8931e", 0.50, "li"),
     (D.MET1, "#1e3ac0", 0.45, "met1"),
     (D.LICON, "#111111", 0.95, "licon"),
@@ -91,3 +93,7 @@ if __name__ == "__main__":
            "output)\nxm5 PMOS common-source over xm6 NMOS sink, VOUT shared on "
            "met1; gates VB (left) / N2 (right)\nDRC-clean + LVS MATCH",
            nets=True)
+    render("res_rz", "res_rz — the Miller nulling resistor Rz (xhigh_po poly "
+           "resistor)\npoly body under poly_res+urpm+psdm, W=0.69 L=3.45 (5 sq)"
+           "; contacted at each end (P/M)\nDRC-clean + extraction-verified: "
+           "R=10000 ohm", nets=True)

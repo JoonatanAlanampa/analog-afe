@@ -388,6 +388,35 @@ def build_out_stage():
     D.label(c, "N2", x0p + P["totx"] + 0.75, ny2)
     _write(c)
 
+    build_res_rz()
+
+
+def build_res_rz():
+    """The Miller nulling resistor Rz -- a sky130 xhigh_po precision poly
+    resistor (2000 ohm/sq), the leg's FIRST passive and first PDK special-marker
+    device. The resistive body is poly UNDER the poly_res(66/13) marker, with
+    urpm(79/20) + psdm defining the 2k-ohm flavour; a contacted poly terminal at
+    each end sits OUTSIDE the body (that is what the extractor reads as a
+    terminal). W = 0.69 um, L = 3.45 um (5 squares) -> ~10 kOhm = the applied
+    THD-fix Rz (design-notes.md 12)."""
+    c = gdstk.Cell("res_rz")
+    xc, W, L, ext = 2.0, 0.69, 3.45, 0.6
+    x0, x1 = xc - W / 2, xc + W / 2
+    ytot = 2 * ext + L
+    D._r(c, D.POLY, x0, 0.0, x1, ytot)                       # the poly strip
+    D._r(c, D.POLY_RES, x0, ext, x1, ext + L)                # resistive body
+    D._r(c, D.URPM, xc - 0.635, ext - 0.1, xc + 0.635, ext + L + 0.1)  # >=1.27 wide
+    D._r(c, D.PSDM, xc - 0.77, -0.2, xc + 0.77, ytot + 0.2)
+
+    def term(name, yc):                                      # poly contact = pin
+        D._r(c, D.LICON, xc - 0.085, yc - 0.085, xc + 0.085, yc + 0.085)
+        D._r(c, D.NPC, xc - 0.185, yc - 0.185, xc + 0.185, yc + 0.185)
+        D._r(c, D.LI, xc - 0.165, yc - 0.165, xc + 0.165, yc + 0.165)
+        D.label(c, name, xc, yc)
+    term("P", 0.3)
+    term("M", ytot - 0.3)
+    _write(c)
+
 
 if __name__ == "__main__":
     build()

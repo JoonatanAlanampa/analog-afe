@@ -107,6 +107,7 @@ local — so nothing has to cross. It extracts to two W=10 PMOS, xm3 diode-tied 
 | `met2_test` (met1↔met2 via + met2-over-met1 crossing) | **CLEAN** | — (layer check) |
 | `ota5t_core` (whole 5T OTA: 6 devices, 3 strips, routed) | **CLEAN** | **MATCH** |
 | `out_stage` (miller stage 2: PMOS CS + NMOS sink, class-A) | **CLEAN** | **MATCH** |
+| `res_rz` (xhigh_po poly resistor, ~10 kΩ) | **CLEAN** | **R=10 kΩ ✓** (extract) |
 
 **All three sub-blocks of the 5T OTA — the NMOS input pair, the PMOS mirror
 load, and the NMOS tail/bias — are laid out and verified as the right circuit,
@@ -167,15 +168,40 @@ licon stud inside the strip, and the gates escape to the *sides* on li while the
 drains meet on met1 up the centre, so nothing collides. Scaled W = 10 stands in
 for the shipped W = 60 drive device; the topology and routing are what's proven.
 
+## The first passive — the nulling resistor Rz
+
+![The Miller nulling resistor Rz: a vertical poly strip 0.69um wide, its middle 3.45um marked as the resistive body by poly_res, wrapped in the urpm 2k-ohm implant and psdm, contacted at each end (P bottom, M top). DRC-clean and extraction-verified at 10 kohm.](img/layout_res_rz.png)
+
+`res_rz` is the amplifier's **nulling resistor** — the `Rz` in series with the
+compensation cap that the THD fix set to 10 kΩ. It is the leg's first *passive*
+and its first PDK **special-marker** device: a poly strip whose middle 3.45 µm
+is declared resistive by the `poly_res` (66/13) marker, wrapped in the `urpm`
+(79/20) 2 kΩ/sq implant and `psdm`, with a contacted poly terminal at each end
+*outside* the marker (which is what the extractor reads as a pin). At 0.69 µm
+width and 3.45 µm length that is **5 squares × 2000 Ω/sq = 10 kΩ**, and the
+extractor confirms it exactly.
+
+**On its verification — a real deck asymmetry, named honestly.** `res_rz` is not
+in the LVS *compare* set; it is checked by *extraction* (`run_res_extract.py`,
+wired into `verify.py`). The reason is a genuine limitation: the sky130 KLayout
+deck **extracts** the precision poly resistor as a **3-terminal**
+`resistor_with_bulk` device, but its SPICE **reader** parses `R` cards as only
+**2-terminal** — there is a reader delegate that builds a 3-terminal
+capacitor-with-bulk for the VPP caps, but none for a bulk resistor. So a
+hand-written schematic reference cannot be paired against the extraction no
+matter how it is written. Extraction is the meaningful check for a passive
+anyway: it confirms the drawn geometry *is* a `sky130_fd_pr__res_xhigh_po_0p69`
+**and** measures it at **R = 10000 Ω**, which is exactly what matters for a
+resistor whose value is the spec.
+
 ## What's next
 
-Both active pieces of the two-stage Miller amplifier are now laid out and
-LVS-clean — the 5T core (stage 1) and this output stage (stage 2). What remains
-of the amplifier layout:
+Both active stages of the two-stage Miller amplifier are laid out and LVS-clean
+(5T core + output stage), and the first passive (`Rz`) is drawn and value-
+verified. What remains of the amplifier layout:
 
-- **The Miller passives** — the compensation cap `Cc` (a ~4 pF MIM or MOS cap, a
-  large new device layer) and the nulling resistor `Rz` (a sky130 `xhigh_po`
-  poly resistor). These are the first *passive* devices the leg draws.
+- **The compensation cap `Cc`** — the other Miller passive, a ~4 pF MIM or MOS
+  cap (a large new device layer).
 - **Full-amp assembly** — stitch stage 1 + stage 2 + `Cc`/`Rz` into one
   `miller_ota` cell (the stage-1 output `n2` to the `xm5` gate, `vb` shared).
 - **Post-extraction re-simulation** — run the benches again on the parasitic-

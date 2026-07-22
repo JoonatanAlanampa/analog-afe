@@ -59,6 +59,12 @@ Mb VB VB VSS VNB sky130_fd_pr__nfet_01v8 L=1u W=10u
 M0 TAIL VB VSS VNB sky130_fd_pr__nfet_01v8 L=1u W=10u
 .ends
 """,
+    # NOTE: res_rz (the xhigh_po poly resistor) is intentionally NOT here. The
+    # deck EXTRACTS it correctly as sky130_fd_pr__res_xhigh_po_0p69 at R=10000,
+    # but it extracts a 3-terminal `resistor_with_bulk` while the deck's SPICE
+    # reader reads `R` cards as 2-terminal (no bulk-resistor reader delegate,
+    # unlike the C-VPP path) -- so a hand-written reference cannot be paired.
+    # res_rz is verified DRC-clean + by extraction (see run_res_extract.py).
     # miller_ota stage 2: PMOS common-source (xm5) + NMOS current-sink (xm6)
     # sharing the output. Scaled W=10; bulks are ports (VNB substrate, VNW well).
     "out_stage": """.subckt out_stage n2 vb vout vdd vss vnb vnw

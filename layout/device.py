@@ -30,6 +30,8 @@ MET1LBL = (68, 5)
 VIA = (68, 44)           # met1 <-> met2 via
 MET2 = (69, 20)
 MET2LBL = (69, 5)
+POLY_RES = (66, 13)      # poly-resistor body marker (defines the resistive run)
+URPM = (79, 20)          # 2k-ohm (xhigh) poly-resistor implant
 BND = (235, 4)
 
 # rule-derived dimensions (um), matched to the clean stdcells cells

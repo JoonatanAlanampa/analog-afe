@@ -139,11 +139,19 @@ Console roles (why each block exists):
       **DRC-clean + LVS MATCH first run** (the 5T-core lessons carried over:
       via-on-stud-inside-strip, gates out the sides / drains up the centre).
       Both active stages of the two-stage Miller amp are now laid out + LVS-clean.
-- [ ] The **Miller passives** — `Cc` (~4 pF MIM/MOS cap, new device layer) and
-      `Rz` (`xhigh_po` poly resistor) — the leg's first passives; then the
-      **full-amp assembly** (stage 1 + stage 2 + Cc/Rz → one `miller_ota` cell),
-      then rail-tie guard rings (bulk ports → real body ties), then
-      **post-extraction re-simulation** — the number that decides the silicon.
+- [x] **Nulling resistor Rz** (`res_rz`, figure `docs/img/layout_res_rz.png`):
+      the leg's first passive + first PDK special-marker device — an `xhigh_po`
+      precision poly resistor, poly body under `poly_res`(66/13)+`urpm`(79/20)+
+      `psdm`, W=0.69 L=3.45 (5 squares). **DRC-clean + extraction-verified at
+      R=10000 Ω** (`run_res_extract.py`, wired into `verify.py`). NOT in the LVS
+      compare set: the deck extracts the PR resistor as 3-terminal
+      `resistor_with_bulk` but its SPICE reader reads `R` as 2-terminal (no
+      bulk-resistor reader delegate, unlike the C-VPP path) — so a hand-written
+      reference can't pair; extraction (device + value) is the real check.
+- [ ] The **compensation cap Cc** (~4 pF MIM/MOS cap, new device layer) — the
+      other Miller passive; then the **full-amp assembly** (stage 1 + stage 2 +
+      Cc/Rz → one `miller_ota` cell), then rail-tie guard rings (bulk ports →
+      real body ties), then **post-extraction re-simulation** — decides silicon.
 
 ## Phase 3 — comparator
 
