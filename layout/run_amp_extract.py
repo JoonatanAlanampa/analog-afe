@@ -64,6 +64,16 @@ def main():
         ok &= hit
         print(f"  net {name}: {'OK' if hit else 'FAIL'}")
 
+    # body ties: every transistor bulk (the 4th terminal) sits on its rail
+    joined = re.sub(r"\\\s*\r?\n", " ", txt).splitlines()
+    pb = [ln.split()[4] for ln in joined if "pfet_01v8" in ln and ln[:1] == "M"]
+    nb = [ln.split()[4] for ln in joined if "nfet_01v8" in ln and ln[:1] == "M"]
+    bok = (len(pb) == 3 and all("VDD" in b for b in pb) and
+           len(nb) == 5 and all("VSS" in b for b in nb))
+    ok &= bok
+    print(f"  bodies (PMOS bulk->VDD, NMOS bulk->VSS): "
+          f"{'OK' if bok else 'FAIL ' + str(pb) + str(nb)}")
+
     print(f"miller_ota: {'EXTRACT-OK -- 10 devices, key nets connected'
                          if ok else 'FAIL'}")
     return 0 if ok else 1

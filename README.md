@@ -255,18 +255,19 @@ It went device → matched pair → stage → amplifier:
 Full blow-by-blow, every layer-coloured figure, and the routing schemes are in
 [`docs/layout.md`](docs/layout.md).
 
-The substrate is body-tied too — a p+ tap wired to `VSS` ties the whole NMOS bulk
-(the re-extraction confirms `bulk = VSS`), the tie every real analog block needs
-against latch-up and substrate noise.
+The amplifier is **fully body-tied** too — a p+ tap ties the whole NMOS bulk to
+`VSS`, and an n+ tap in each nwell ties the PMOS bulks to `VDD` (the re-extraction
+confirms every transistor bulk on its rail), the ties every real analog block
+needs against latch-up and substrate/well noise.
 
-**Next:** the netlist is confirmed by extraction; the remaining signoff is a
-**parasitic (RC) re-simulation** — how the layout's coupling moves the phase
-margin and THD — which is only meaningful once the blocks are redrawn at
-**production sizing** (they stand in at scaled W; a tapeout mostly adds fingers,
-not new topology), alongside the nwell body ties (the wells need widening for the
-taps). A wider-ICMR input (rail-to-rail / complementary pair) also stays on the
-shelf as the path to THD below 0.1 % at full swing. Full roadmap in
-[`PLAN.md`](PLAN.md).
+**Next:** everything the flow can prove before a full-size redraw — DRC, LVS, the
+whole-amp device set, connectivity and body ties — is done and green. The one
+remaining effort is **production sizing + a parasitic (RC) re-simulation**: redraw
+the blocks at full W (they stand in at scaled W; a tapeout mostly adds fingers,
+not new topology), then a parasitic-annotated re-sim of how the layout's coupling
+moves the phase margin and THD becomes meaningful. A wider-ICMR input (rail-to-rail
+/ complementary pair) also stays on the shelf as the path to THD below 0.1 % at
+full swing. Full roadmap in [`PLAN.md`](PLAN.md).
 
 ### The whole op-amp, assembled and fully wired
 

@@ -517,6 +517,22 @@ def build_miller_ota():
     D.via(top, 10.0, 1.45)                                          # li -> met1
     D.strap(top, 10.0 - 0.14, 0.6, 10.0 + 0.14, 1.55, layer=D.MET1)  # down onto VSS rail
     D.label(top, "vss_tap", 10.0, 1.9, layer=D.LILBL)
+
+    # nwell body ties: an n+ tap in each well -> VDD. The wells are widened at the
+    # top level into the open area to make room; the taps are on the tap layer so
+    # the extractor bonds nwell -> ntap -> VDD (as the substrate tie does for VSS).
+    # stage-1 mirror well -> the VDD-tie met1 running down the gap
+    D._r(top, D.NWELL, 8.7, 21.82, 9.7, 27.18)
+    D.tap(top, 9.0, 23.0, 9.5, 25.5, kind="n")
+    D.via(top, 9.35, 24.2)                                          # tap li -> VDD tie
+    D.label(top, "nw1_tap", 9.25, 25.7, layer=D.LILBL)
+    # stage-2 PMOS well -> up to the stage-2 VDD rail
+    D._r(top, D.NWELL, 17.0, 9.82, 18.8, 15.18)
+    D.tap(top, 18.0, 11.0, 18.6, 13.5, kind="n")
+    D.via(top, 18.3, 12.5)
+    D.strap(top, 18.3 - 0.14, 12.3, 18.3 + 0.14, 16.65, layer=D.MET1)   # up
+    D.strap(top, 16.9, 16.35, 18.3 + 0.14, 16.65, layer=D.MET1)         # to VDD rail
+    D.label(top, "nw2_tap", 18.3, 13.6, layer=D.LILBL)
     top.flatten()
     lib = gdstk.Library()
     lib.add(top)

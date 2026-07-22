@@ -263,37 +263,43 @@ opposite sides from `miller_ota.sp`'s inverting convention. The topology is
 identical; which input is the inverting one is a label choice (swap the two
 `VIN` labels to match the schematic's feedback sign).
 
-## The substrate body tie
+## Body ties — the amplifier is fully tied
 
-Left untied, the amplifier's substrate floats — the extractor puts all five NMOS
-bulks on a nameless `sky130_gnd` net, separate from `VSS`. A single **p+ tap**
-in the open gap, wired down to the `VSS` rail, fixes it: the substrate is one
-global net, so one contact ties the whole NMOS bulk to `VSS` (real silicon needs
-this against latch-up and substrate noise). The re-extraction confirms it — all
-five NMOS now report **bulk = `VSS|vss_tap`**, and `run_amp_extract.py` asserts it.
+Left untied, the amplifier's bodies float: the extractor puts all five NMOS bulks
+on a nameless `sky130_gnd` net and each nwell on its own floating net, none of
+them on a rail. Real analog silicon can't ship that way (latch-up, substrate and
+well noise). So the assembly ties them all:
+
+- **Substrate → VSS**: a single **p+ tap** in the open gap, wired to the `VSS`
+  rail. The substrate is one global net, so one contact ties the whole NMOS bulk.
+- **Each nwell → VDD**: an **n+ tap** in each of the two wells (the stage-1 mirror
+  and the stage-2 PMOS), wired to `VDD`. The wells are *widened* at the top level
+  into the open area to make room for the taps.
+
+The re-extraction confirms all of it — **all 5 NMOS report bulk = `VSS`, all 3
+PMOS report bulk = `VDD`** — and `run_amp_extract.py` asserts both. The amplifier
+is now fully body-tied.
 
 The catch worth recording: a body tie must be drawn on the **`tap` layer (65/44)**,
-not plain active diff (65/20). The deck's `ptap_conn = tap.and(psdm).not(nwell)`
-then `connect(sub, ptap_conn)` is what bonds the global substrate to the contact —
-a diff-drawn tap is DRC-clean but electrically does nothing, which is exactly what
-the first attempt showed (li merged to `VSS`, substrate still floating). The
-**nwell** ties (an n+ tap in each well → `VDD`) need the wells widened to make
-room, so they ride with the production redraw.
+not plain active diff (65/20). The deck bonds the substrate through `ptap_conn =
+tap.and(psdm).not(nwell)` → `connect(sub, ptap_conn)`, and a well through
+`ntap_conn = tap.and(nsdm).and(nwell)` → `connect(nwell, ntap_conn)`. A diff-drawn
+tap is DRC-clean but electrically inert — exactly what the first attempt showed
+(the tap's li merged to `VSS`, yet the substrate stayed floating on `sky130_gnd`).
 
 ## What's next
 
-The amplifier is drawn, **fully wired**, and its device set + connectivity are
-**extraction-verified**. What remains is signoff and realism:
+The amplifier is drawn, **fully wired**, **fully body-tied**, and its device set +
+connectivity + body ties are all **extraction-verified**. What remains is a single
+tapeout-prep effort, not a set of gaps:
 
-- **Parasitic (RC) re-simulation** — the extractor confirms the *netlist*; the
-  next step is a parasitic-annotated re-sim to see how the layout's coupling and
-  wire R move the phase margin and THD. That is only meaningful at **production
-  sizing** (below), since a scaled stand-in's numbers wouldn't reproduce the
-  schematic benches.
-- **Production sizing** — the blocks stand in at scaled W (W = 10 for the W = 60
-  output device, ~200 fF for the 4 pF `Cc`); a real tapeout redraws them at full
-  size, which mostly means more fingers / larger plates, not new topology.
-- **The nwell body ties** (n+ tap in each well → VDD) — the substrate is already
-  tied (above); the wells need widening for the taps, so they go in with the
-  production redraw, alongside the `vinp`/`vinn` label swap that sets the feedback
-  sign (see above).
+- **Production sizing + parasitic (RC) re-simulation** — the blocks stand in at
+  scaled W (W = 10 for the W = 60 output device, ~200 fF for the 4 pF `Cc`). A
+  tapeout redraws them at full size (mostly more fingers / larger plates, not new
+  topology), and *then* a parasitic-annotated re-sim — how the layout's coupling
+  and wire R move the phase margin and THD — becomes meaningful (a scaled stand-in's
+  numbers wouldn't reproduce the schematic benches). The `vinp`/`vinn` label swap
+  that sets the feedback sign (see above) goes in at the same pass.
+
+Everything the flow can prove *before* that redraw — DRC, LVS, the whole-amp
+device set, connectivity and body ties — is done and green.

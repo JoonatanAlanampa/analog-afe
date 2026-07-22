@@ -190,10 +190,16 @@ Console roles (why each block exists):
       to the VSS rail ties the whole NMOS bulk to VSS. Extraction confirms all 5
       NMOS **bulk = `VSS|vss_tap`** (was floating `sky130_gnd`); `run_amp_extract`
       asserts it. Deck: `ptap_conn = tap.and(psdm).not(nwell)`; `connect(sub,ptap_conn)`.
-- [ ] **nwell body ties** (n+ tap in each well → VDD; wells need widening) +
-      **parasitic (RC) re-simulation** (meaningful only at **production full-W
-      sizing** — scaled stand-ins won't reproduce the benches) + the `vinp`/`vinn`
-      feedback-sign label swap — the tapeout-prep pass.
+- [x] **nwell body ties** (`miller_ota`): an n+ `tap` in each of the two wells
+      (stage-1 mirror + stage-2 PMOS), wells widened at the top level for room,
+      wired to VDD. Extraction confirms **all 3 PMOS bulk = VDD** (were floating);
+      `run_amp_extract` now asserts PMOS→VDD + NMOS→VSS. Deck: `ntap_conn =
+      tap.and(nsdm).and(nwell)`; `connect(nwell, ntap_conn)`. **The amp is now
+      fully body-tied.** Everything the flow can prove pre-redraw is done + green.
+- [ ] **Production full-W sizing + parasitic (RC) re-simulation** (redraw blocks
+      at full W → parasitic-annotated re-sim becomes meaningful; scaled stand-ins
+      won't reproduce the benches) + the `vinp`/`vinn` feedback-sign label swap —
+      one tapeout-prep redraw pass.
 
 ## Phase 3 — comparator
 
