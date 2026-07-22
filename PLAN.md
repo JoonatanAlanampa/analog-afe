@@ -114,12 +114,15 @@ Console roles (why each block exists):
       current mirror — DRC-clean + **LVS MATCH** (reused the mirror pattern, all
       first try). All three 5T sub-blocks now done both ways; `layout/verify.py`
       runs the whole build→DRC→LVS regression green (7 cells, 5 LVS-matched).
+- [x] **met2 routing layer added + validated** (`device.py`: met2/via layers +
+      `via2()` stack; `met2_test` — two met1 pads joined by a met2 strap through
+      a via at each end, that strap crossing a met1 wire of another net —
+      **DRC-clean**). The second metal the assembled core needs (each sub-block
+      fits on li+met1, but the core's ~7 nets exit in every direction).
 - [ ] The **5T core**: place the three sub-blocks (mirror over input pair over
-      tail) and route the shared nodes (n1, vout, tail, vb). Needs a **met2**
-      layer — each sub-block fits on li+met1 (≤5 nets, few directions) but the
-      assembled core's ~7 nets exit in every direction; add met2 to `device.py`.
-      Then the second stage + bias generator, then **post-extraction
-      re-simulation** — the number that decides the silicon.
+      tail), route the shared nodes (n1, vout, tail) on met1 + the input gates
+      out on met2; then the second stage + bias generator, then
+      **post-extraction re-simulation** — the number that decides the silicon.
 
 ## Phase 3 — comparator
 

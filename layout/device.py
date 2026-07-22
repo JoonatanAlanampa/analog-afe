@@ -27,6 +27,9 @@ LILBL = (67, 5)
 MCON = (67, 44)
 MET1 = (68, 20)
 MET1LBL = (68, 5)
+VIA = (68, 44)           # met1 <-> met2 via
+MET2 = (69, 20)
+MET2LBL = (69, 5)
 BND = (235, 4)
 
 # rule-derived dimensions (um), matched to the clean stdcells cells
@@ -119,6 +122,16 @@ def via(cell, xc, yc):
     the stdcells pin (min met1 area, and enough enclosure of the 0.17 mcon)."""
     _r(cell, MCON, xc - 0.085, yc - 0.085, xc + 0.085, yc + 0.085)
     _r(cell, MET1, xc - 0.14, yc - 0.15, xc + 0.14, yc + 0.15)
+
+
+def via2(cell, xc, yc):
+    """met1 -> met2 via: a VIA (0.15 exact) capped by a met1 pad below and a
+    met2 pad above, each enclosing it by 0.085 (0.32 sq). The caller's own met1
+    routing usually is the pad below, but drawing it makes the stack complete
+    wherever `via2` is dropped."""
+    _r(cell, VIA, xc - 0.075, yc - 0.075, xc + 0.075, yc + 0.075)
+    _r(cell, MET1, xc - 0.16, yc - 0.16, xc + 0.16, yc + 0.16)
+    _r(cell, MET2, xc - 0.16, yc - 0.16, xc + 0.16, yc + 0.16)
 
 
 def guard_ring(cell, x0, y0, x1, y1, w=0.5, kind="p"):

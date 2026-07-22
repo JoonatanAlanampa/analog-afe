@@ -187,6 +187,23 @@ def build_tail_bias():
     D.label(c, "VB", col[0], ny)
     _write(c)
 
+    build_met2_test()
+
+
+def build_met2_test():
+    """Validate the met2 layer before the core uses it: two met1 pads joined by
+    a met2 strap through a via at each end, and that strap passing OVER a met1
+    wire of another net (a crossing that must be DRC-clean because they are
+    different layers -- exactly what met2 buys the 5T core)."""
+    c = gdstk.Cell("met2_test")
+    D.strap(c, 1.0, 1.0, 1.4, 1.4, layer=D.MET1)      # pad A (met1)
+    D.strap(c, 4.0, 1.0, 4.4, 1.4, layer=D.MET1)      # pad B (met1)
+    D.via2(c, 1.2, 1.2)
+    D.via2(c, 4.2, 1.2)
+    D.strap(c, 1.04, 1.04, 4.36, 1.36, layer=D.MET2)  # met2 joins A--B
+    D.strap(c, 2.5, 0.2, 2.7, 3.0, layer=D.MET1)      # met1 wire it crosses
+    _write(c)
+
 
 if __name__ == "__main__":
     build()

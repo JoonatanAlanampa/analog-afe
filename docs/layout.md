@@ -104,6 +104,7 @@ local — so nothing has to cross. It extracts to two W=10 PMOS, xm3 diode-tied 
 | `cc_diff` (A B B A routed NMOS input pair) | **CLEAN** | **MATCH** |
 | `pmos_mirror` (A B B A routed PMOS mirror load) | **CLEAN** | **MATCH** |
 | `tail_bias` (NMOS mirror: tail source + bias diode) | **CLEAN** | **MATCH** |
+| `met2_test` (met1↔met2 via + met2-over-met1 crossing) | **CLEAN** | — (layer check) |
 
 **All three sub-blocks of the 5T OTA — the NMOS input pair, the PMOS mirror
 load, and the NMOS tail/bias — are now laid out and verified as the right
@@ -113,12 +114,21 @@ device clean first try; a li-connected tap ring beats stacking mcon on licon
 layers/levels that can't collide) LVS matches first try — every routed cell's
 only DRC fixes were sub-0.2 µm connectivity near-misses, never topology.
 
-Next: **stitch the three into the 5T core** — place the mirror above the input
-pair above the tail, and route the shared nodes (n1 from the input drain to the
-mirror diode, vout, tail). One honest constraint has shown up here: each
-sub-block fits on two routing layers (li + met1) because its ≤ 5 nets exit in a
-few clean directions, but the assembled core has ~7 nets (vinp, vinn, n1, vout,
-tail, vb, plus the vdd/vss rails) leaving in every direction at once — that
-needs a **second metal (met2)**, the next capability to add to `device.py`.
-Then the second stage and the bias generator, and finally **post-extraction
-re-simulation**, the number that actually decides whether the silicon works.
+## The next step, and the layer it needs
+
+Assembling the three sub-blocks into the 5T core surfaced an honest constraint:
+each block fits on two routing layers (li + met1) because its ≤ 5 nets exit in a
+few clean directions, but the *assembled* core has ~7 nets (vinp, vinn, n1,
+vout, tail, vb, plus the vdd/vss rails) leaving in every direction at once —
+that needs a **second metal**. So **met2 is now added to `device.py` and
+validated**: `via2()` builds a met1↔met2 via stack, and `met2_test` — two met1
+pads joined by a met2 strap through a via at each end, with that strap crossing
+*over* a met1 wire of another net — is **DRC-clean**, confirming the via size,
+met2 width/spacing/enclosure, and (the point of the layer) that met2 crosses
+met1 without a short.
+
+Next: **the 5T core** — place the mirror above the input pair above the tail,
+route the shared nodes (n1, vout, tail) on met1 and take the input gates out on
+met2; then the second stage and the bias generator, and finally
+**post-extraction re-simulation**, the number that actually decides whether the
+silicon works.
