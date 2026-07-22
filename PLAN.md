@@ -157,9 +157,17 @@ Console roles (why each block exists):
       caps; a MIM cap reads back as a generic `C` with a forced default value).
       `run_passive_extract.py` (Rz+Cc) wired into `verify.py`. **Every device of
       the miller_ota now exists in layout.**
-- [ ] The **full-amp assembly** (stage 1 + stage 2 + Cc/Rz → one `miller_ota`
-      cell), then rail-tie guard rings (bulk ports → real body ties), then
-      **post-extraction re-simulation** — the number that decides the silicon.
+- [x] **Full-amp floorplan assembled** (`miller_ota`, figure
+      `docs/img/layout_miller_ota.png`): the four verified blocks (5T core +
+      class-A output + Rz + Cc) placed as one cell with the **VDD/VSS rails tied**
+      across the two active stages on met1 — **DRC-clean**. Each block is
+      individually LVS/extract-verified; this assembles them. HONEST: a floorplan,
+      not yet a whole-amp LVS — the sub-blocks' pins aren't on abutment edges (VB/
+      VOUT/N2 sit mid-cell), so inter-block signal routing is the next step (the
+      "doesn't compose for free" lesson at amplifier scale). Added to the README.
+- [ ] **Inter-block signal routing** (n2 → xm5 gate → Rz, the Rz/Cc branch to
+      vout, shared vb) → **post-extraction re-simulation** (decides the silicon)
+      → rail-tie guard rings (bulk ports → real body ties).
 
 ## Phase 3 — comparator
 

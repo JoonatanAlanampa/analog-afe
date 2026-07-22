@@ -109,6 +109,7 @@ local — so nothing has to cross. It extracts to two W=10 PMOS, xm3 diode-tied 
 | `out_stage` (miller stage 2: PMOS CS + NMOS sink, class-A) | **CLEAN** | **MATCH** |
 | `res_rz` (xhigh_po poly resistor, ~10 kΩ) | **CLEAN** | **R=10 kΩ ✓** (extract) |
 | `cap_cc` (MIM cap on met3, ~200 fF) | **CLEAN** | **C=200 fF ✓** (extract) |
+| `miller_ota` (whole amp: 4 blocks assembled + tied rails) | **CLEAN** | — (floorplan) |
 
 **All three sub-blocks of the 5T OTA — the NMOS input pair, the PMOS mirror
 load, and the NMOS tail/bias — are laid out and verified as the right circuit,
@@ -215,15 +216,31 @@ confirms the drawn geometry **is** the intended PDK device *and* measures its
 value (`res_xhigh_po_0p69` @ **R = 10000 Ω**; `cap_mim` @ **C = 2e-13 F**), which
 is exactly what matters for devices whose value is the spec.
 
+## The whole amplifier, assembled
+
+![The whole two-stage Miller amplifier assembled: the 5T core (stage 1) on the left, the class-A output (stage 2) beside it, the nulling resistor Rz and the MIM cap Cc to the right, VDD/VSS rails tied across the stages on met1. DRC-clean.](img/layout_miller_ota.png)
+
+`miller_ota` places the four verified blocks as one floorplan — the **5T core**
+(stage 1), the **class-A output** (stage 2), the **nulling resistor** `Rz` and the
+**MIM cap** `Cc` — and ties the **VDD and VSS rails** across the two active stages
+on met1, in the clean gap between them. Each block is individually DRC-clean and
+LVS/extraction-verified; this is them assembled into the amplifier, and the whole
+placed cell is **DRC-clean**.
+
+**Honest scope.** This is the assembled *floorplan*, not yet a whole-amp LVS. The
+sub-blocks' pins were not brought to abutment edges — `VB`, `VOUT`/`n2` and the
+`N2` gate all sit mid-cell — so the inter-block **signal** routing (`n2` → the
+`xm5` gate, the `Rz`/`Cc` compensation branch, the `vb` tie) plus a whole-amp
+post-extract is the next step. It is exactly the *"a block does not compose for
+free"* lesson the 5T core taught, now one level up: the fix there was to re-route
+the input pair to face its neighbours, and the fix here is to give each block
+edge-accessible pins before the final stitch.
+
 ## What's next
 
-Both active stages of the two-stage Miller amplifier are laid out and LVS-clean
-(5T core + output stage), and **both passives** (`Rz`, `Cc`) are drawn and
-value-verified. Every *device* of the `miller_ota` now exists in layout. What
-remains:
-
-- **Full-amp assembly** — stitch stage 1 + stage 2 + `Cc`/`Rz` into one
-  `miller_ota` cell (the stage-1 output `n2` to the `xm5` gate, `vb` shared).
+- **Inter-block signal routing** — bring the blocks' internal nodes to their
+  edges and wire the amplifier: `n2` (stage-1 output → `xm5` gate → `Rz`), the
+  `Rz`/`Cc` compensation branch to `vout`, and the shared `vb`.
 - **Post-extraction re-simulation** — run the benches again on the parasitic-
   extracted netlist, the number that actually decides whether the silicon works.
 - **Rail-tie guard rings** (substrate → VSS, nwell → VDD) replace the bulk

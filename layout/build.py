@@ -441,6 +441,38 @@ def build_cap_cc():
     D.label(c, "P2", 7.0, 7.0, layer=D.MET4LBL)
     _write(c)
 
+    build_miller_ota()
+
+
+def build_miller_ota():
+    """The whole two-stage Miller amplifier, ASSEMBLED as a floorplan of the four
+    individually-verified blocks: the 5T core (stage 1), the class-A output
+    (stage 2), the nulling resistor Rz and the compensation cap Cc. Every block
+    is placed as an instance; the VDD and VSS rails are tied across the two active
+    stages on met1 in the clean gap between them.
+
+    HONEST SCOPE: this is the assembled floorplan, not yet a whole-amp LVS. The
+    sub-blocks' pins were not brought to abutment edges (VB/VOUT/N2 sit mid-cell),
+    so the inter-block SIGNAL routing (n2 -> xm5 gate, the Rz/Cc branch, the vb
+    tie) plus a whole-amp post-extract is the next step -- the same 'a block does
+    not compose for free' lesson the 5T core taught, now at amplifier scale."""
+    top = gdstk.Cell("miller_ota")
+    place = {"ota5t_core": (0.0, 0.0), "out_stage": (11.0, 0.0),
+             "res_rz": (11.5, 18.0), "cap_cc": (19.0, 0.0)}
+    for name, (dx, dy) in place.items():
+        sub = gdstk.read_gds(str(OUT / f"{name}.gds")).cells[0]
+        top.add(gdstk.Reference(sub, (dx, dy)))
+    # tie the rails across stage 1 and stage 2 on met1 (clean gap between them)
+    D.strap(top, 4.57, 0.45, 17.43, 0.75, layer=D.MET1)          # VSS (bottom)
+    D.strap(top, 7.30, 28.25, 9.50, 28.55, layer=D.MET1)         # VDD: stage1 out
+    D.strap(top, 9.20, 16.35, 9.50, 28.55, layer=D.MET1)         #      down the gap
+    D.strap(top, 9.20, 16.35, 15.10, 16.65, layer=D.MET1)        #      into stage2
+    top.flatten()
+    lib = gdstk.Library()
+    lib.add(top)
+    lib.write_gds(str(OUT / "miller_ota.gds"))
+    print("wrote miller_ota.gds")
+
 
 if __name__ == "__main__":
     build()

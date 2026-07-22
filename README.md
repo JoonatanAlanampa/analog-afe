@@ -26,11 +26,14 @@ THD was found **failing** at the 1 V pp spec swing (1.44 %) and is now
 bench pinned the residual-distortion floor to the input pair (not the output),
 and a **constant-gm bias generator with a verified start-up** now replaces the
 ideal current source ([`docs/biasgen.md`](docs/biasgen.md)). **Phase 2 (layout)
-is under way** — the flow is stood up and **all three of the 5T OTA's
-sub-blocks** (the NMOS input pair, the PMOS mirror load, and the NMOS tail/bias)
-are drawn, routed, and **LVS-clean**, each extracting to exactly its schematic;
-`layout/verify.py` runs the whole DRC + LVS regression green
-([`docs/layout.md`](docs/layout.md)).
+is well under way** — *every device of the two-stage amplifier is now drawn and
+verified*: both active stages (the **5T core** and the **class-A output**) are
+routed and **LVS-clean**, and both passives (the **nulling resistor** and the
+**MIM compensation cap**) are drawn and **extraction-verified** at value; the
+four blocks are then **assembled into the amplifier floorplan**
+([see below](#phase-2--layout-the-whole-amplifier-drawn)). `layout/verify.py`
+runs the whole DRC + LVS + extract regression green — 12 cells DRC-clean, 7
+LVS-matched, 2 passives extract-verified ([`docs/layout.md`](docs/layout.md)).
 
 ## The block under design
 
@@ -217,33 +220,51 @@ already ~35 dB quieter in distortion than 8-bit console audio can use. (CMRR
 itself is 68.7 dB, flat across the band — a first-stage property the output
 fix leaves untouched.)
 
-## Phase 2 — layout (kicked off)
+## Phase 2 — layout: the whole amplifier, drawn
 
-Post-layout is where analog designs go to die (matching, parasitics, wells),
-so phase 2 starts with the hardest-to-get-right pieces. The flow — gdstk
-device primitives → GDS → KLayout DRC (`sky130A_mr` deck) → rendered PNG — is
-stood up in [`layout/`](layout/), reusing the `stdcells` KLayout + deck, and
-the two structures that matter most are drawn **DRC-clean**:
+Post-layout is where analog designs go to die (matching, parasitics, wells), so
+phase 2 built up from the hardest-to-get-right pieces. The flow — gdstk device
+primitives → GDS → KLayout DRC (`sky130A_mr` deck) + LVS (`sky130.lvs`) →
+rendered PNG — is stood up in [`layout/`](layout/), reusing the `stdcells`
+KLayout + deck. `python layout/verify.py` runs the whole regression green.
 
-![Common-centroid NMOS input pair (D A B B A D) with a p-tap guard ring, DRC-clean on the sky130A_mr deck.](docs/img/layout_cc_pair.png)
+It went device → matched pair → stage → amplifier:
 
-The input pair is drawn **common-centroid** — interleaved fingers so devices A
-and B share a centroid and a linear process gradient cancels to first order
-(the matching a side-by-side layout can't get). It is then **routed into the
-differential pair and LVS-matched** — five nets leave one diffusion strip on
-two layers without a short, and the layout extracts to exactly two W=10 NMOS
-with a common source:
+- **The matching pairs.** The input pair and the PMOS mirror load are each drawn
+  **common-centroid** — interleaved fingers (A B B A) so a linear process
+  gradient cancels to first order — then routed and **LVS-matched** to exactly
+  their schematic (two W=10 devices with a shared node).
+- **The 5T core (stage 1).** The three matched sub-blocks stacked and routed into
+  the whole first stage — six transistors, **LVS-matched** to `ota_5t.sp`. The
+  hard-won lesson: a standalone-clean block does **not** compose for free (the
+  input pair had to be re-routed to face its neighbours), and every source/drain
+  must leave on a via landing on a real licon stud *inside* the strip.
+- **The class-A output (stage 2)** — a PMOS common-source over an NMOS sink,
+  **LVS-matched first run**.
+- **The passives.** The nulling resistor `Rz` (an `xhigh_po` precision poly
+  resistor) and the compensation cap `Cc` (a **MIM** cap on met3) — the leg's
+  first passives, both **extraction-verified at value** (R = 10 kΩ, C = 2e-13 F).
+  Neither can be LVS-*compared* against a hand-written reference — the sky130
+  reader delegate only names the devices it handles explicitly, so a bulk
+  resistor and a non-VPP cap fall through — a real deck asymmetry
+  [named honestly in `docs/layout.md`](docs/layout.md).
 
-![Routed common-centroid input pair (A B B A) — VA/VB gate straps, TAIL common source, OA/OB drains — DRC-clean and LVS-matched.](docs/img/layout_cc_diff.png)
+Full blow-by-blow, every layer-coloured figure, and the routing schemes are in
+[`docs/layout.md`](docs/layout.md).
 
-The PMOS mirror load (xm3/xm4) is done the same way — common-centroid, in an
-nwell, DRC-clean and LVS-matched — so **both of the OTA's matching-critical
-pairs are now verified as the right circuit**. Details, both layer-by-layer
-figures, and the routing scheme in [`docs/layout.md`](docs/layout.md).
+**Next:** the four blocks' inter-stage *signal* routing (the sub-blocks' pins
+aren't on abutment edges — the "doesn't compose for free" lesson at amplifier
+scale) → a whole-amp **post-extraction re-simulation**, the number that decides
+whether the silicon works → rail-tie guard rings. A wider-ICMR input
+(rail-to-rail / complementary pair) also stays on the shelf as the path to THD
+below 0.1 % at full swing. Full roadmap in [`PLAN.md`](PLAN.md).
 
-**Next:** the 5T core (place the two pairs + tail + bias diode, route the
-internal nodes), then the second stage + bias generator → post-extraction
-re-simulation. Two design items also carry in: the bias generator's real poly
-resistor is a post-layout Monte-Carlo signoff item, and a wider-ICMR input
-(rail-to-rail / complementary pair) is the path to THD below 0.1 % at the full
-swing if ever wanted. Full roadmap in [`PLAN.md`](PLAN.md).
+### The whole op-amp, assembled
+
+Every device of the two-stage Miller amplifier, placed as one floorplan — the 5T
+core (stage 1) on the left, the class-A output (stage 2) beside it, the nulling
+resistor `Rz` and the MIM compensation cap `Cc` to the right, with the VDD/VSS
+rails tied across the two stages on met1. Each block is individually DRC-clean
+and LVS/extraction-verified; this is them assembled into the amplifier.
+
+![The whole two-stage Miller op-amp assembled in sky130 layout: the 5T OTA first stage (three stacked common-centroid strips), the class-A output stage, the xhigh_po nulling resistor and the MIM compensation cap, with the VDD and VSS power rails tied across the stages on metal1. DRC-clean.](docs/img/layout_miller_ota.png)
