@@ -177,9 +177,17 @@ Console roles (why each block exists):
       Every net of `miller_ota` routed, **DRC-clean**. device.py += `via_met2_met3`
       / `via_met3_met4`. Lesson: an isolated upper-metal via island needs a
       min-area met3 patch (m3.6).
-- [ ] **Whole-amp post-extraction re-simulation** (decides the silicon; gated on
-      the KLayout deep-mode extractor erroring on the big flat cell — try
-      hierarchical/per-block) → rail-tie guard rings → production (full-W) sizing.
+- [x] **Whole-amp connectivity verified by extraction** (`run_amp_extract.py`,
+      wired into `verify.py`): the wired amp extracts to **exactly the 10 devices
+      of `miller_ota.sp`** (5 NMOS + 3 PMOS + Rz + Cc) with the right nets —
+      KLayout merges labels per net, so `n2`=`N2|P|VOUT|n2`, `vout`=`P2|VOUT`,
+      `nz`=`M|P1|nz`, `vb`=`VB|vb`. (The earlier "extractor error" was a relative
+      *path* bug, not a real failure.) Polarity note: layout reuses ota5t_core
+      (`xm1` gate=`vinp`) so `vinp`/`vinn` are swapped vs miller_ota.sp's inverting
+      convention — a label choice, topology identical.
+- [ ] **Parasitic (RC) re-simulation** — meaningful only at **production (full-W)
+      sizing** (scaled stand-ins won't reproduce the benches) → rail-tie guard
+      rings + the `vinp`/`vinn` feedback-sign label swap.
 
 ## Phase 3 — comparator
 

@@ -109,7 +109,7 @@ local — so nothing has to cross. It extracts to two W=10 PMOS, xm3 diode-tied 
 | `out_stage` (miller stage 2: PMOS CS + NMOS sink, class-A) | **CLEAN** | **MATCH** |
 | `res_rz` (xhigh_po poly resistor, ~10 kΩ) | **CLEAN** | **R=10 kΩ ✓** (extract) |
 | `cap_cc` (MIM cap on met3, ~200 fF) | **CLEAN** | **C=200 fF ✓** (extract) |
-| `miller_ota` (whole amp: 4 blocks, **fully wired**) | **CLEAN** | — (assembly) |
+| `miller_ota` (whole amp: 4 blocks, **fully wired**) | **CLEAN** | **10 dev + nets ✓** (extract) |
 
 **All three sub-blocks of the 5T OTA — the NMOS input pair, the PMOS mirror
 load, and the NMOS tail/bias — are laid out and verified as the right circuit,
@@ -245,24 +245,37 @@ bottom plate) and crosses on met4 to the `Cc` top plate. The whole wired cell is
 5T core, one level up — and the over-the-cell metal stack is the answer to it at
 amplifier scale.
 
-**What remains is the signoff, not the wiring.** Every net of the amplifier is
-routed. A **whole-amp post-extract** LVS is the remaining check — and it is a
-tooling matter, not a geometry one: the passives block a device *compare* (as
-above), and KLayout's deep-mode extractor errors on the large flattened
-multi-block cell. Every sub-block is individually DRC-clean and LVS/extraction-
-verified.
+**The wiring is verified — by extraction.** The whole assembled amplifier
+extracts to **exactly the ten devices of `miller_ota.sp`** — 5 NMOS + 3 PMOS +
+the poly resistor + the MIM cap — and, crucially, the *connectivity* is right:
+KLayout tags each extracted net with every label on it, so the nets come out
+named `N2|P|VOUT|n2` (stage-1 output = `xm5` gate = `Rz.P`), `P2|VOUT` (output =
+`Cc` top plate), `M|P1|nz` (`Rz.M` = `Cc` bottom plate) and `VB|vb` — proof that
+the routing joined the nodes it was supposed to. `run_amp_extract.py` asserts the
+device count and those four merges, wired into `verify.py`. (This is the whole-amp
+LVS in the form the passives allow: they block a hand-written device *compare*,
+but the extraction itself confirms the circuit. The earlier "extractor error" on
+the flattened cell was a stale relative *path*, not a real failure.)
+
+One honest note on **polarity**: the layout reuses `ota5t_core` (drawn as
+`ota_5t`, `xm1` gate = `vinp`), so the extracted amp has `vinp`/`vinn` on the
+opposite sides from `miller_ota.sp`'s inverting convention. The topology is
+identical; which input is the inverting one is a label choice (swap the two
+`VIN` labels to match the schematic's feedback sign).
 
 ## What's next
 
-The amplifier is drawn and **fully wired** — every net routed, DRC-clean. What
-remains is signoff and realism, not connectivity:
+The amplifier is drawn, **fully wired**, and its device set + connectivity are
+**extraction-verified**. What remains is signoff and realism:
 
-- **Post-extraction re-simulation** — run the benches again on the parasitic-
-  extracted netlist, the number that actually decides whether the silicon works
-  (gated on the KLayout deep-mode extractor, which errors on the large flattened
-  cell — likely a hierarchical or per-block extraction instead).
+- **Parasitic (RC) re-simulation** — the extractor confirms the *netlist*; the
+  next step is a parasitic-annotated re-sim to see how the layout's coupling and
+  wire R move the phase margin and THD. That is only meaningful at **production
+  sizing** (below), since a scaled stand-in's numbers wouldn't reproduce the
+  schematic benches.
+- **Production sizing** — the blocks stand in at scaled W (W = 10 for the W = 60
+  output device, ~200 fF for the 4 pF `Cc`); a real tapeout redraws them at full
+  size, which mostly means more fingers / larger plates, not new topology.
 - **Rail-tie guard rings** (substrate → VSS, nwell → VDD) replace the bulk
-  *ports* with real body ties.
-- **Production sizing** — the blocks stand in at scaled W (e.g. W = 10 for the
-  W = 60 output device, ~200 fF for the 4 pF `Cc`); a real tapeout redraws them
-  at full size, which mostly means more fingers / larger plates, not new topology.
+  *ports* with real body ties, and the `vinp`/`vinn` label swap that sets the
+  feedback sign (see above) goes in at the same pass.

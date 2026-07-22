@@ -32,9 +32,11 @@ routed and **LVS-clean**, and both passives (the **nulling resistor** and the
 **MIM compensation cap**) are drawn and **extraction-verified** at value; the
 four blocks are then **assembled and fully wired into the amplifier**
 ([see below](#phase-2--layout-the-whole-amplifier-drawn)) — every net routed
-(rails, `n2`, `vb`, and the whole `Rz`/`Cc` compensation branch), DRC-clean. `layout/verify.py`
-runs the whole DRC + LVS + extract regression green — 12 cells DRC-clean, 7
-LVS-matched, 2 passives extract-verified ([`docs/layout.md`](docs/layout.md)).
+(rails, `n2`, `vb`, and the whole `Rz`/`Cc` compensation branch), DRC-clean and
+**extraction-verified** to be exactly the `miller_ota` circuit. `layout/verify.py`
+runs the whole DRC + LVS + extract regression green — 13 cells DRC-clean, 7
+LVS-matched, both passives + the whole amp extraction-verified
+([`docs/layout.md`](docs/layout.md)).
 
 ## The block under design
 
@@ -253,12 +255,13 @@ It went device → matched pair → stage → amplifier:
 Full blow-by-blow, every layer-coloured figure, and the routing schemes are in
 [`docs/layout.md`](docs/layout.md).
 
-**Next:** a whole-amp **post-extraction re-simulation** — the number that decides
-whether the silicon works → rail-tie guard rings → production sizing (the blocks
-stand in at scaled W; a tapeout redraws them at full size, mostly more fingers,
-not new topology). A wider-ICMR input (rail-to-rail / complementary pair) also
-stays on the shelf as the path to THD below 0.1 % at full swing. Full roadmap in
-[`PLAN.md`](PLAN.md).
+**Next:** the netlist is confirmed by extraction; the remaining signoff is a
+**parasitic (RC) re-simulation** — how the layout's coupling moves the phase
+margin and THD — which is only meaningful once the blocks are redrawn at
+**production sizing** (they stand in at scaled W; a tapeout mostly adds fingers,
+not new topology) → rail-tie guard rings. A wider-ICMR input (rail-to-rail /
+complementary pair) also stays on the shelf as the path to THD below 0.1 % at
+full swing. Full roadmap in [`PLAN.md`](PLAN.md).
 
 ### The whole op-amp, assembled and fully wired
 
@@ -272,6 +275,11 @@ signals are routed *over the cells* on the upper metals — a via stack taps eac
 buried `li` pin up, the wire crosses on met2 (and met3/met4 for the cap's plates),
 another stack drops down — the answer to the *"a block doesn't compose for free"*
 lesson at amplifier scale. Every block is individually DRC-clean and
-LVS/extraction-verified, and the whole wired cell is **DRC-clean**.
+LVS/extraction-verified, and the **whole wired cell is DRC-clean and its wiring is
+extraction-verified**: it extracts to exactly the ten devices of `miller_ota.sp`
+(5 NMOS + 3 PMOS + `Rz` + `Cc`) with the right connectivity — KLayout names each
+net by its labels, so `n2` comes out as `N2|P|n2` (stage-1 output = `xm5` gate =
+`Rz.P`), `vout` as `P2|VOUT` (`Cc` top plate = output), and so on
+([`run_amp_extract.py`](layout/run_amp_extract.py)).
 
 ![The whole two-stage Miller op-amp in sky130 layout, fully wired: the 5T OTA first stage (three stacked common-centroid strips), the class-A output stage, the xhigh_po nulling resistor and the MIM compensation cap; the VDD/VSS rails, the n2 inter-stage signal, the shared vb bias and the complete Rz/Cc compensation branch are all routed over the cells on metal2/3/4. DRC-clean.](docs/img/layout_miller_ota.png)

@@ -30,7 +30,9 @@ if __name__ == "__main__":
     lvs = sh("run_lvs.py")
     print("=== passive extract (Rz, Cc — extraction-verified) ===")
     passives = sh("run_passive_extract.py")
-    if drc or lvs or passives:
+    print("=== whole-amp extract (miller_ota device set + connectivity) ===")
+    amp = sh("run_amp_extract.py")
+    if drc or lvs or passives or amp:
         sys.exit("layout regression FAILED")
     print("\nLAYOUT REGRESSION CLEAN — all cells DRC-clean, all LVS matched, "
-          "passives (Rz/Cc) extract-verified")
+          "passives extract-verified, whole amp connectivity-verified")
