@@ -196,10 +196,23 @@ Console roles (why each block exists):
       `run_amp_extract` now asserts PMOS→VDD + NMOS→VSS. Deck: `ntap_conn =
       tap.and(nsdm).and(nwell)`; `connect(nwell, ntap_conn)`. **The amp is now
       fully body-tied.** Everything the flow can prove pre-redraw is done + green.
-- [ ] **Production full-W sizing + parasitic (RC) re-simulation** (redraw blocks
-      at full W → parasitic-annotated re-sim becomes meaningful; scaled stand-ins
-      won't reproduce the benches) + the `vinp`/`vinn` feedback-sign label swap —
-      one tapeout-prep redraw pass.
+- [x] **Production full-W sizing + parasitic (RC) re-simulation + feedback-sign
+      swap — DONE 2026-07-23** (one tapeout-prep redraw pass). Blocks redrawn to
+      the taped-out (corner-verified THD-fix) sizing by scaling FINGER WIDTH and
+      keeping the proven nf=4 common-centroid interleave for the matched pairs:
+      input pair `W=40` (m8), mirror + tail/bias `W=20` (m4), class-A output
+      `W=150` (m30, 10 fingers), `Cc = 4 pF` (44.7 µm MIM plate,
+      extract-verified), `Rz = 10 kΩ`. The whole-amp extraction now reports
+      exactly those widths on all ten devices. **Feedback sign** corrected to
+      `miller_ota.sp`'s inverting convention (`VINN`→`n1`, `VINP`→`n2`) and made a
+      `run_amp_extract` assertion. **Parasitic RC re-sim** (`tb/parasitics.py` →
+      `docs/parasitics.md`): interconnect wire caps extracted from the GDS (planar
+      area+fringe, sky130 magic coefficients) — **~14 fF total** (met2 Miller
+      trunk + met4 across the cap) vs the **4 pF** Cc, so phase margin moves
+      **−0.13°** (81.0°→80.9°, spec 60°/target 65°) and THD is unchanged, even at
+      2× pessimistic. `layout/verify.py` green throughout.
+      - Still on the shelf: a wider-ICMR input (rail-to-rail / complementary pair)
+        for THD < 0.1 % at full 1 Vpp; real poly-R Monte-Carlo signoff.
 
 ## Phase 3 — comparator
 

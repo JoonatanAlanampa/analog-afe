@@ -23,7 +23,7 @@ import run_lvs as L          # reuse its PDK/KLayout paths + patched deck
 # (cell, device class, "<letter>=<value>" param, expected value, rel. tolerance)
 PASSIVES = [
     ("res_rz", "sky130_fd_pr__res_xhigh_po_0p69", "R", 10000.0, 0.02),
-    ("cap_cc", "sky130_fd_pr__model__cap_mim",    "C", 2e-13,   0.05),
+    ("cap_cc", "sky130_fd_pr__model__cap_mim",    "C", 4e-12,   0.02),
 ]
 
 

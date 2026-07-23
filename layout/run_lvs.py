@@ -70,22 +70,25 @@ M0 TAIL VB VSS VNB sky130_fd_pr__nfet_01v8 L=1u W=10u
     # force-appends a default C=2e-16. So neither can be paired by a hand-written
     # reference. Extraction (device class + value) is the real check for a passive.
     # miller_ota stage 2: PMOS common-source (xm5) + NMOS current-sink (xm6)
-    # sharing the output. Scaled W=10; bulks are ports (VNB substrate, VNW well).
+    # sharing the output. PRODUCTION FULL-W (pout=2.5 THD fix): W=150 (m30).
+    # Bulks are ports (VNB substrate, VNW well).
     "out_stage": """.subckt out_stage n2 vb vout vdd vss vnb vnw
-M5 vout n2 vdd vnw sky130_fd_pr__pfet_01v8 L=0.5u W=10u
-M6 vout vb vss vnb sky130_fd_pr__nfet_01v8 L=1u W=10u
+M5 vout n2 vdd vnw sky130_fd_pr__pfet_01v8 L=0.5u W=150u
+M6 vout vb vss vnb sky130_fd_pr__nfet_01v8 L=1u W=150u
 .ends
 """,
     # the whole 5T OTA: bias diode + tail + input pair + PMOS mirror load.
-    # Internal nets n1/tail; bulks are ports (VNB substrate, VNW nwell). The
-    # scaled W=10 devices match the sub-block refs above.
+    # Internal nets n1/tail; bulks are ports (VNB substrate, VNW nwell).
+    # PRODUCTION FULL-W matching miller_ota.sp: input pair W=40 (m8), mirror +
+    # tail/bias W=20 (m4). Feedback-sign convention matches miller_ota.sp:
+    # xm1 (gate=vinn) -> n1, xm2 (gate=vinp) -> vout(n2).
     "ota5t_core": """.subckt ota5t_core vinp vinn vout vb vdd vss vnb vnw
-Mb vb vb vss vnb sky130_fd_pr__nfet_01v8 L=1u W=10u
-M0 tail vb vss vnb sky130_fd_pr__nfet_01v8 L=1u W=10u
-M1 n1 vinp tail vnb sky130_fd_pr__nfet_01v8 L=0.5u W=10u
-M2 vout vinn tail vnb sky130_fd_pr__nfet_01v8 L=0.5u W=10u
-M3 n1 n1 vdd vnw sky130_fd_pr__pfet_01v8 L=1u W=10u
-M4 vout n1 vdd vnw sky130_fd_pr__pfet_01v8 L=1u W=10u
+Mb vb vb vss vnb sky130_fd_pr__nfet_01v8 L=1u W=20u
+M0 tail vb vss vnb sky130_fd_pr__nfet_01v8 L=1u W=20u
+M1 n1 vinn tail vnb sky130_fd_pr__nfet_01v8 L=0.5u W=40u
+M2 vout vinp tail vnb sky130_fd_pr__nfet_01v8 L=0.5u W=40u
+M3 n1 n1 vdd vnw sky130_fd_pr__pfet_01v8 L=1u W=20u
+M4 vout n1 vdd vnw sky130_fd_pr__pfet_01v8 L=1u W=20u
 .ends
 """,
 }

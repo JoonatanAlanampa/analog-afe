@@ -260,14 +260,20 @@ The amplifier is **fully body-tied** too — a p+ tap ties the whole NMOS bulk t
 confirms every transistor bulk on its rail), the ties every real analog block
 needs against latch-up and substrate/well noise.
 
-**Next:** everything the flow can prove before a full-size redraw — DRC, LVS, the
-whole-amp device set, connectivity and body ties — is done and green. The one
-remaining effort is **production sizing + a parasitic (RC) re-simulation**: redraw
-the blocks at full W (they stand in at scaled W; a tapeout mostly adds fingers,
-not new topology), then a parasitic-annotated re-sim of how the layout's coupling
-moves the phase margin and THD becomes meaningful. A wider-ICMR input (rail-to-rail
-/ complementary pair) also stays on the shelf as the path to THD below 0.1 % at
-full swing. Full roadmap in [`PLAN.md`](PLAN.md).
+**Production full-W + parasitic RC re-sim — DONE.** The blocks were redrawn at
+the taped-out sizing (the corner-verified THD fix: input pair `W=40`, mirror +
+tail `W=20`, class-A output `W=150`, `Cc = 4 pF`, `Rz = 10 kΩ`) — the extraction
+now reports exactly those widths on all ten devices, and the feedback sign was
+corrected to `miller_ota.sp`'s inverting convention (`VINN`→`n1`, `VINP`→`n2`,
+now a regression assertion). With full W the layout's real interconnect matters,
+so the wire capacitance was extracted from the GDS (a planar area+fringe estimate,
+sky130 magic coefficients) and re-simulated: the routing adds **~14 fF total**
+(the ~22 µm met2 Miller-node trunk + the ~30 µm met4 across the cap) against the
+**4 pF** Miller cap, so the phase margin moves **−0.13°** (81.0°→80.9°, spec 60°)
+and THD is unchanged — the amp meets spec with its real routing in place
+([`docs/parasitics.md`](docs/parasitics.md)). A wider-ICMR input (rail-to-rail /
+complementary pair) stays on the shelf as the path to THD below 0.1 % at full
+swing. Full roadmap in [`PLAN.md`](PLAN.md).
 
 ### The whole op-amp, assembled and fully wired
 

@@ -90,23 +90,25 @@ if __name__ == "__main__":
     render("pmos_mirror", "pmos_mirror — common-centroid PMOS current mirror "
            "(A=xm3 diode, B=xm4)\nDRC-clean + LVS MATCH to two W=10 PMOS",
            list(zip(xs4p, ["A", "B", "B", "A"])), finger_y=8.0, nets=True)
-    render("ota5t_core", "ota5t_core — the whole 5T OTA, assembled and routed\n"
-           "PMOS mirror over NMOS input pair over tail/bias; shared nodes "
-           "(n1/vout/tail) on met1+li, input gates on li\n"
-           "DRC-clean + LVS MATCH to all six transistors", nets=True)
-    render("out_stage", "out_stage — the miller_ota second stage (class-A "
-           "output)\nxm5 PMOS common-source over xm6 NMOS sink, VOUT shared on "
-           "met1; gates VB (left) / N2 (right)\nDRC-clean + LVS MATCH",
+    render("ota5t_core", "ota5t_core — the whole 5T OTA, production full-W\n"
+           "PMOS mirror (W=20) over NMOS input pair (W=40) over tail/bias "
+           "(W=20); shared nodes on met1+li, input gates on li\n"
+           "DRC-clean + LVS MATCH; VINN→n1 / VINP→n2 (inverting convention)",
            nets=True)
+    render("out_stage", "out_stage — the miller_ota second stage (class-A "
+           "output), production full-W\nxm5 PMOS common-source over xm6 NMOS "
+           "sink, W=150 (10 fingers), VOUT shared on met1; gates VB / N2\n"
+           "DRC-clean + LVS MATCH", nets=True)
     render("res_rz", "res_rz — the Miller nulling resistor Rz (xhigh_po poly "
            "resistor)\npoly body under poly_res+urpm+psdm, W=0.69 L=3.45 (5 sq)"
            "; contacted at each end (P/M)\nDRC-clean + extraction-verified: "
            "R=10000 ohm", nets=True)
     render("cap_cc", "cap_cc — the Miller compensation cap Cc (MIM cap on met3)\n"
            "bottom plate met3 (P1), top plate capm (P2) contacted up via3->met4;"
-           " 10x10 um -> ~200 fF\nDRC-clean + extraction-verified: cap_mim "
-           "C=2e-13 F", nets=True)
-    render("miller_ota", "miller_ota — the whole two-stage amplifier, fully "
-           "wired\n5T core | class-A output | Rz | Cc;  VDD/VSS rails + n2 + vb "
-           "+ the Rz/Cc Miller\ncompensation branch (n2-Rz-nz-Cc-vout, "
-           "met2->met3->met4) all routed. DRC-clean", nets=True)
+           " 44.7x44.7 um -> 4 pF\nDRC-clean + extraction-verified: cap_mim "
+           "C=4e-12 F", nets=True)
+    render("miller_ota", "miller_ota — the whole two-stage amplifier, "
+           "PRODUCTION FULL-W\n5T core (in W40 / mir+tail W20) | class-A output "
+           "(W150) | Rz 10k | Cc 4pF;  rails + n2/vb + the Rz/Cc Miller branch\n"
+           "all routed. DRC-clean + extraction-verified (10 devices, W's, nets, "
+           "body ties)", nets=True)

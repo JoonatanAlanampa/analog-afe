@@ -4,3 +4,5 @@ __pycache__/
 *.pyc
 # layout artefacts — regenerate with `python layout/build.py`
 layout/out/
+# parasitic-annotated netlists — regenerate with `python tb/parasitics.py`
+spice/miller_ota_par*.sp

@@ -15,10 +15,11 @@ they must: n2 (stage-1 out = xm5 gate = Rz.P), vout (output = Cc top plate), nz
 
     python layout/run_amp_extract.py
 
-NOTE on polarity: the layout reuses ota5t_core (built as ota_5t, xm1 gate=vinp),
-so the extracted amp has vinp/vinn on the opposite sides from miller_ota.sp's
-inverting convention. The topology is identical; which input is inverting is a
-label choice (swap the two VIN labels to match the schematic's feedback sign).
+POLARITY: the feedback sign now matches miller_ota.sp's inverting convention --
+the input device with gate VINN drains to n1 (the diode/mirror side), the VINP
+device drives n2 (the stage-1 output into stage 2). This is asserted below
+(getting it backwards is positive feedback and a latched output, a silent
+failure worth a regression check).
 """
 import re
 import subprocess
@@ -73,6 +74,20 @@ def main():
     ok &= bok
     print(f"  bodies (PMOS bulk->VDD, NMOS bulk->VSS): "
           f"{'OK' if bok else 'FAIL ' + str(pb) + str(nb)}")
+
+    # feedback sign: the W=40 input pair. VINN-gate device must reach n1 (diode
+    # side), VINP-gate device must reach n2 (stage-1 out) -- miller_ota.sp's
+    # inverting convention. (KLayout may swap S/D, so check all D/G/S/B nets.)
+    inp = [ln.split() for ln in joined
+           if "nfet_01v8" in ln and " W=40" in ln and ln[:1] == "M"]
+
+    def touches(dev, key):
+        return any(key in t for t in dev[1:5])
+    pol = (len(inp) == 2 and
+           any(touches(d, "VINN") and touches(d, "N1") for d in inp) and
+           any(touches(d, "VINP") and touches(d, "n2") for d in inp))
+    ok &= pol
+    print(f"  feedback sign (VINN->n1, VINP->n2): {'OK' if pol else 'FAIL'}")
 
     print(f"miller_ota: {'EXTRACT-OK -- 10 devices, key nets connected'
                          if ok else 'FAIL'}")

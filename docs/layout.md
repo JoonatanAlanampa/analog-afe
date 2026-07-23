@@ -287,19 +287,34 @@ tap.and(psdm).not(nwell)` → `connect(sub, ptap_conn)`, and a well through
 tap is DRC-clean but electrically inert — exactly what the first attempt showed
 (the tap's li merged to `VSS`, yet the substrate stayed floating on `sky130_gnd`).
 
-## What's next
+## Production full-W redraw + parasitic RC re-sim (the tapeout-prep pass)
 
-The amplifier is drawn, **fully wired**, **fully body-tied**, and its device set +
-connectivity + body ties are all **extraction-verified**. What remains is a single
-tapeout-prep effort, not a set of gaps:
+The blocks were redrawn at the taped-out sizing — the corner-verified THD fix
+(`design-notes.md` §12): input pair `W = 40` (m8), mirror + tail/bias `W = 20`
+(m4), class-A output `W = 150` (m30), `Cc = 4 pF`, `Rz = 10 kΩ`. The method that
+kept the redraw a low-risk *y-remap* rather than a rewrite: for the **matched**
+pairs (input, mirror, tail) the full width was reached by **finger width**, not
+finger count — the proven nf = 4 `A B B A` common-centroid interleave is kept, so
+every x-coordinate and the LVS topology are unchanged and only the strip heights
+move. The **output** devices are unmatched, so they became plain 10-finger
+multi-finger FETs; `Cc` became a 44.7 µm MIM plate. The whole-amp extraction now
+reports **exactly those widths** on all ten devices (`nfet W=40 ×2`, `W=20 ×3`,
+`W=150`; `pfet W=20 ×2`, `W=150`; `res R=10 kΩ`; `cap C=4 pF`).
 
-- **Production sizing + parasitic (RC) re-simulation** — the blocks stand in at
-  scaled W (W = 10 for the W = 60 output device, ~200 fF for the 4 pF `Cc`). A
-  tapeout redraws them at full size (mostly more fingers / larger plates, not new
-  topology), and *then* a parasitic-annotated re-sim — how the layout's coupling
-  and wire R move the phase margin and THD — becomes meaningful (a scaled stand-in's
-  numbers wouldn't reproduce the schematic benches). The `vinp`/`vinn` label swap
-  that sets the feedback sign (see above) goes in at the same pass.
+The **feedback sign** went in at the same pass: the input labels now match
+`miller_ota.sp`'s inverting convention (`VINN`→`n1`, the diode/mirror side;
+`VINP`→`n2`, the stage-1 output), and `run_amp_extract.py` **asserts** it — a
+latched output from a wrong sign is a silent failure, so it earns a regression
+check.
 
-Everything the flow can prove *before* that redraw — DRC, LVS, the whole-amp
-device set, connectivity and body ties — is done and green.
+With full W the layout's real interconnect finally matters, so it was extracted
+and re-simulated ([`parasitics.md`](parasitics.md)): the routing adds only
+**~14 fF total** — a ~22 µm met2 trunk on the Miller node `n2` (3.9 fF) and a
+~30 µm met4 run carrying `vout` across the 45 µm cap (6.2 fF) dominate — against
+the **4 pF** Miller cap, so the phase margin moves **−0.13°** (81.0° → 80.9°,
+spec 60°) and THD is unchanged. The amplifier meets spec with its real routing in
+place. `layout/verify.py` stayed green throughout.
+
+Still on the shelf (not gaps in *this* amp): a wider-ICMR input (rail-to-rail /
+complementary pair) for THD < 0.1 % at full 1 Vpp, and real poly-R Monte-Carlo
+signoff.
