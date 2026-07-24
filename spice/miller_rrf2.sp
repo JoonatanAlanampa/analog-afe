@@ -1,6 +1,6 @@
 * -----------------------------------------------------------------------
-* miller_rrf2 -- folded rail-to-rail input with a WIDE-SWING CASCODED summing
-* node.  The path to THD < 0.1 % at full 1 Vpp.
+* miller_rrf2 -- folded rail-to-rail input with a self-biased CASCODED summing
+* node.  The path to THD < 0.1 % at full 1 Vpp, ROBUST over PVT at 1 kHz.
 *
 * miller_rrf removed the input ICMR walls but left a ~0.16 % h2 floor: the
 * LOW-side gain deficit. At low V_CM the NMOS tail starves, so the folded-NMOS
@@ -8,16 +8,19 @@
 * impedance at the shared node cb drops -> it SHUNTS cb, dragging the trough to
 * 54 dB (vs a 72 dB peak). That asymmetry is the residual distortion.
 *
-* FIX: cascode the folded-NMOS mirror with a WIDE-SWING bias, so its output
-* impedance stays HIGH even when the current runs up -> it no longer shunts cb.
-* Wide-swing (not a plain cascode) because cb must sit ~0.73 V to bias stage 2,
-* and a plain two-high NMOS stack needs ~0.75 V+; wide-swing lets both devices
-* stay saturated down to ~2*Vov ~ 0.3 V. The cascode gate ncb = Vth + 2*Vov is
-* made by a diode-connected NMOS of 1/4 the mirror width (the classic W/4
-* trick) carrying the mirror current.
+* FIX: cascode the folded-NMOS mirror (m13-m16 below) so its output impedance
+* stays HIGH even when the current runs up -> it no longer shunts cb. A WIDE-
+* SWING cascode with a separately-generated bias was tried first and COLLAPSED
+* the DC (the independent reference forced a leg current the fold did not
+* supply -- a current mismatch); the STANDARD self-biased cascode used here
+* (both reference devices diode-connected) self-matches the actual folded
+* current and works, with cb ~0.73 V and both output devices saturated.
 *
-* Everything else = miller_rrf: folded-cascode NMOS (high side) + PMOS pair
-* with NMOS-mirror load (low side), summed at cb; class-A output; Miller comp.
+* Plus a margin pass: the PMOS low-side path is scaled 1.5x (below) to lift the
+* trough gain, which is what makes the 1 kHz THD clear 0.1 % at EVERY PVT corner
+* (0.046-0.092 %); Cc = 9 p holds PM (worst 62.8 deg) while keeping 20 kHz loop
+* gain. Everything else = miller_rrf: folded-cascode NMOS (high side) + PMOS
+* pair with NMOS-mirror load (low side), summed at cb; class-A output; Miller.
 *
 * Pins: vinp vinn vout vb vdd vss.  Params: pout, pcc, prz.
 * -----------------------------------------------------------------------

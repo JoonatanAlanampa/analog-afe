@@ -655,8 +655,22 @@ at ~0.58 V, both saturated.
 `miller_ota` — while also improving DC gain (+13 dB), ICMR and offset. Whether
 0.167 % → 0.064 % is worth that is a system call (0.167 % is already inaudible
 for a line-level output behind a coupling cap and the Pmod's own amplifier), but
-the circuit path to the target is now measured and closed. Open finishing items
-for a real signoff: the thin nominal margins on the fold's top sources (m9/m10)
-and output cascode (m16) dip into soft triode at the cold corners (gain still
-71–74 dB there), and worst-corner Iq is 213 µA — both are sizing-margin tuning,
-not topology.
+the circuit path to the target is now measured and closed. Sizing margins — and why the shipped sizing is the optimum, not a first cut.
+Three devices sit in *soft* triode at the cold extreme (ss/−40 °C): the fold top
+sources m9/m10 and the output cascode m16, each ~−0.02 V of margin — the same
+benign class as the PMOS tail mp0, which the complementary input runs slightly
+triode at mid-rail on *every* corner (gain still 71–74 dB there, THD still
+< 0.1 %). A margin-tuning pass was tried and **reverted**, because none of it
+survives the trade on a 1.8 V rail: lowering the cascode bias pc and widening
+the cascode mirror cleaned the *nominal* margins but did **not** fix the cold
+extreme (m16 stayed at −0.02 V) and cost phase margin — worst-corner PM fell
+62.8° → 60.6° as the wider cascode pushed the high-supply UGF up; and raising pb
+to lift m9/m10 *collapsed the fold node* (a small step took fa from 1.55 V to
+0.07 V). So the sizing is left at its robust optimum: worst-corner **PM 62.8°**,
+gain 66–83 dB, and THD robust < 0.1 % at 1 kHz across the box. Worst-corner Iq
+is ~221 µA (over the 200 µA per-buffer budget): the output current and the
+strengthened PMOS path both earn their keep in the THD — the ff/+85 °C margin
+(0.092 % vs 0.1 %) is too thin to trade for Iq — so it is an accepted overage,
+and the reference is shared across the DAC buffer, comparator and SAR, so it
+amortises per-system (§14). The intrinsic cold soft-triode is the honest residual
+a real signoff would carry, not a bug to size away.
