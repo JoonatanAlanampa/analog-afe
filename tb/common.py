@@ -45,6 +45,12 @@ VARIANTS = {
     "ota_5t":     ("ota_5t",     20e-6),
     "ota_5t_x5":  ("ota_5t",    100e-6),
     "miller_ota": ("miller_ota", 20e-6),
+    # wider-ICMR input-stage candidates (design-notes §15; benched by
+    # tb/input_stage.py). Same pin interface + external 20 uA bias.
+    "miller_fc":  ("miller_fc",  20e-6),   # folded-cascode NMOS input
+    "miller_rr":  ("miller_rr",  20e-6),   # complementary rail-to-rail input
+    "miller_rrf": ("miller_rrf", 20e-6),   # FOLDED complementary rail-to-rail
+    "miller_rrf2":("miller_rrf2",20e-6),   # + wide-swing cascoded summing node
 }
 TOPOLOGIES = list(VARIANTS)
 

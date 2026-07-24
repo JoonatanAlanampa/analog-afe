@@ -589,3 +589,74 @@ time, is the proof the start-up is load-bearing. **The lesson:** a bias
 reference must be signed off in *transient from a cold supply*, never on the
 DC operating point alone — the `.op` solver is precisely the tool that cannot
 see a start-up failure.
+
+## 15. The wider-ICMR input — a THD wall is one half-cycle's ICMR, and removing it exposed a floor
+
+§13 found the two-stage Miller's 0.167 % THD at 1 Vpp is the **input**
+common-mode range, not the output stage: the NMOS pair triodes at V_CM =
+1.40 V, the high peak of a mid-rail 1 Vpp swing. A V_CM sweep pinned the
+mechanism exactly — xm2's saturation margin crosses zero at 1.40 V because its
+drains are **pinned near 0.9 V** by the PMOS *diode* mirror, so once the gate
+(= V_CM in unity gain) rises past drain + Vth, it triodes. `tb/input_stage.py`
+walks the fix, and each candidate's failure named the next one. Full data in
+`docs/input-stage.md`; the transferable lessons:
+
+**A THD wall is one half-cycle's ICMR — so split the number by which device on
+which half before prescribing a fix.** The shipped 1.44 % (pre-output-fix) was
+the *low*-side output sink; the 0.167 % residual is the *high*-side input ICMR.
+They are different devices on different half-cycles, and a fix aimed at the
+wrong half does nothing. This is the same lesson as §5 (measure both directions)
+raised to the distortion mechanism.
+
+**Folding is a seesaw on this rail.** A folded-cascode NMOS input unpins the
+drain and fixes the high side completely (gain at 1.40 V goes to its peak) — but
+the fixed top current sources starve when the NMOS tail collapses at low V_CM,
+so the wall *moves to the low half* and THD gets an order of magnitude worse
+(3.11 %). On a 1.8 V rail a single NMOS pair can be good near VDD *or* near VSS,
+not both; the mirror-loaded 5T is naturally good-low, folding flips it good-high.
+
+**Covering both halves needs a complementary pair, and — the part the textbook
+skips — for a mid-rail swing there is no gm-control needed.** An NMOS pair
+(good low) plus a PMOS pair (good high) summed at the stage-1 node covers
+[0.40, 1.40] V because each pair's weak side is the other's strong side. The
+gm-doubling a rail-to-rail stage normally fights (gm halving as one pair shuts
+off near a rail) lands *outside* the swing here, because neither pair dies until
+the swing is exceeded — so gm is ~constant in-band. Measured bonus, against the
+textbook fear: the rail-to-rail has **lower** input offset (σ 2.7–3.6 mV vs the
+baseline 4.4 mV), because the ~2× combined gm refers each mismatch source to a
+smaller input offset.
+
+**Removing the ICMR wall exposed a floor that was NOT the output stage.** The
+folded rail-to-rail (`miller_rrf`) made THD *flat* at ~0.15 % out to 1.4 Vpp
+(where the baseline is catastrophic) — a real over-swing robustness win — yet
+the 1 Vpp number barely moved. At 0.4 Vpp, with both half-cycles inside the good
+range, THD is 0.022 %, so the output stage is not the floor. The residual is a
+**shunted summing node**: at low V_CM the starved folded-NMOS path floods its
+*simple* mirror and runs up in current, so the mirror's output impedance drops
+and it shunts the shared node — the low trough sits 13–16 dB below the peak, and
+that asymmetry is the residual h2.
+
+**The fix is a cascoded summing node, and the cascode has to self-bias.** Making
+the folded-NMOS mirror a cascode keeps its output impedance high regardless of
+current, so it stops shunting — trough gain rises to ~60 dB, h2 halves, and
+`miller_rrf2` reaches **0.064 % at 1 kHz / 1 Vpp** (< 0.1 % across the audio
+band and out to 1.4 Vpp). The subtlety was the bias: a *wide-swing* cascode with
+a separately-generated reference collapsed the DC, because the independent
+reference forced a leg current the folded path did not actually supply — a
+current mismatch. The **standard self-biased cascode mirror** (both reference
+devices diode-connected) fixes it, because the reference leg then carries the
+*real* folded current and the output leg self-matches. On this rail the output
+node cb must sit at ~0.73 V to bias stage 2, which is tight for a cascoded NMOS
+output; the self-biased cascode lands cb at 0.73 V with the cascode-bottom node
+at ~0.58 V, both saturated.
+
+**The price of the last 0.1 %.** `miller_rrf2` is 27 devices vs the baseline's
+10, ~+29 µA Iq, and a from-scratch analog layout replacing the tapeout-complete
+`miller_ota` — while also improving DC gain (+13 dB), ICMR and offset. Whether
+0.167 % → 0.064 % is worth that is a system call (0.167 % is already inaudible
+for a line-level output behind a coupling cap and the Pmod's own amplifier), but
+the circuit path to the target is now measured and closed. Open finishing items
+for a real signoff: the thin nominal margins on the fold's top sources (m9/m10)
+and output cascode (m16) dip into soft triode at the cold corners (gain still
+71–74 dB there), and worst-corner Iq is 213 µA — both are sizing-margin tuning,
+not topology.
