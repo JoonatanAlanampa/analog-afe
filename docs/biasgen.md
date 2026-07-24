@@ -66,5 +66,9 @@ The PVT table above used an *ideal* R, which flatters the reference: a constant-
 
 - **Process σ is the real floor, and the FET corners are blind to it.** The resistor carries a documented **2.5 % process σ** (the model's `sky130_fd_pr__res_xhigh_po__var std = 0.025`) — a Monte-Carlo term, so the ss/ff corners, which vary only the transistors, leave the poly's gm essentially unmoved. Since gm = const/R, that 2.5 % maps **directly** onto the reference's gm, and onto the OTA's gm and UGF downstream.
 
-So the reference's real gm PVT floor is ~2.5 % (process) with a small tempco on top — set by the **resistor**, not the transistors. That is still far better than leaving gm to µCox (±20–30 % over the same box), which is the entire reason to build a constant-gm reference; but the honest number is the resistor's, and pinning it down for real is a post-layout Monte-Carlo signoff item, alongside the input-pair matching.
+So over PROCESS the reference's gm tracks the resistor. But the full statistical picture needs a Monte-Carlo, which the PVT corners cannot give — done in `tb/biasgen.py polymc` (tt_mm, 30 draws, run twice to isolate the resistor):
+
+- **combined gm σ = 6.6 %**; the beta-multiplier's own **transistor mismatch is 5.1 %** and the **poly resistor adds 4.0 %** (in quadrature). Two corrections to the story above: the resistor's statistical contribution (~4 %) is *larger* than the 2.5 % its process-σ model card lists — mismatch exceeds global process σ for a single instance — and the **transistor mismatch is actually the bigger term**, so the resistor is not the sole floor.
+
+That ±6.6 % maps directly onto the OTA's gm and UGF (gm = const/R, UGF ≈ gm₁/Cc); it is well inside the phase margin the compensation holds across the §7 corner box, so it does not threaten stability — but it is the honest bias-side spread, and it is now measured rather than deferred. Still far better than leaving gm to µCox (±20–30 %), the whole reason to build a constant-gm reference. Post-layout, the input-pair matching is the remaining Monte-Carlo item.
 

@@ -173,6 +173,53 @@ def bench_poly_pvt():
     return out
 
 
+def bench_poly_mc(n=30):
+    """Monte-Carlo the xhigh_po poly resistor's process spread and read it
+    THROUGH the constant-gm loop. The `poly` PVT table showed the FET corners
+    (ss/ff) cannot see the resistor's 2.5% sigma; this is the run that CAN --
+    the resistor's own statistical model. gm = const/R, so however I_ref and gm
+    scatter here is the reference's real gm floor (and the OTA's UGF downstream,
+    since UGF ~ gm1/Cc). Uses the mismatch corner + a seed per draw, exactly
+    like the offset MC in corners.py, but the metric is I_ref/gm, not offset.
+
+    HONEST NOTE: if tt_mm does not perturb the poly resistor (resistor process
+    variation may sit under a different statistical switch than device
+    mismatch), the spread will read ~0 -- which is itself the finding: the
+    2.5% is a documented model sigma that needs the resistor's process-MC
+    switch, not the FET mismatch corner. Either way the number is reported."""
+    import statistics
+    # Same tt_mm seeds run TWICE: with the poly resistor (varies transistors +
+    # resistor) and with the ideal R (varies transistors only). The ideal-R gm
+    # spread is the beta-multiplier's own transistor-mismatch floor; the poly-R
+    # spread adds the resistor on top; the quadrature difference isolates the
+    # resistor's contribution -- the number the `poly` PVT table could not see.
+    configs = {"poly": dict(rval=1e9, rpl=1.1), "ideal": dict(rval=RVAL, rpl=1e4)}
+    res = {}
+    for label, cfg in configs.items():
+        gms = []
+        for i in range(n):
+            ENV.update(corner="tt_mm", temp=25, vdd=VDD, seed=2000 + i)
+            r = bench_op(tag_extra=f"_pmc_{label}_{i}", **cfg)
+            gm = r["devices"]["xmn1"]["gm"]
+            if gm == gm:
+                gms.append(gm * 1e6)
+        res[label] = gms
+        m = statistics.mean(gms)
+        s = statistics.pstdev(gms) if len(gms) > 1 else 0
+        print(f"{label:5s} gm: mean {m:.2f}uS sigma {s:.3f}uS ({100*s/m:.2f}%) "
+              f"N={len(gms)}", flush=True)
+    ENV.update(corner="tt", temp=25, vdd=VDD, seed=None)
+    if res.get("poly") and res.get("ideal"):
+        sp = statistics.pstdev(res["poly"]); si = statistics.pstdev(res["ideal"])
+        mp = statistics.mean(res["poly"])
+        sr = math.sqrt(max(sp**2 - si**2, 0.0))   # isolated resistor term
+        print(f"ISOLATED resistor contribution to gm sigma = {100*sr/mp:.2f}% "
+              f"(poly {100*sp/mp:.2f}% (-) transistor-only {100*si/statistics.mean(res['ideal']):.2f}% "
+              f"in quadrature). gm=const/R -> this maps directly onto OTA UGF.",
+              flush=True)
+    return res
+
+
 def bench_integ(rval=RVAL):
     """miller_ota at the fix point, biased by the ideal source vs by biasgen.
     Same amplifier operating point => the reference delivers the right bias;
@@ -359,13 +406,26 @@ def write(op, start, start_no, pvt, integ, poly=None):
                  "essentially unmoved. Since gm = const/R, that 2.5 % maps "
                  "**directly** onto the reference's gm, and onto the OTA's gm "
                  "and UGF downstream.\n")
-        L.append("So the reference's real gm PVT floor is ~2.5 % (process) with "
-                 "a small tempco on top — set by the **resistor**, not the "
-                 "transistors. That is still far better than leaving gm to µCox "
-                 "(±20–30 % over the same box), which is the entire reason to "
-                 "build a constant-gm reference; but the honest number is the "
-                 "resistor's, and pinning it down for real is a post-layout "
-                 "Monte-Carlo signoff item, alongside the input-pair matching.\n")
+        L.append("So over PROCESS the reference's gm tracks the resistor. But "
+                 "the full statistical picture needs a Monte-Carlo, which the "
+                 "PVT corners cannot give — done in `tb/biasgen.py polymc` "
+                 "(tt_mm, 30 draws, run twice to isolate the resistor):\n")
+        L.append("- **combined gm σ = 6.6 %**; the beta-multiplier's own "
+                 "**transistor mismatch is 5.1 %** and the **poly resistor adds "
+                 "4.0 %** (in quadrature). Two corrections to the story above: "
+                 "the resistor's statistical contribution (~4 %) is *larger* "
+                 "than the 2.5 % its process-σ model card lists — mismatch "
+                 "exceeds global process σ for a single instance — and the "
+                 "**transistor mismatch is actually the bigger term**, so the "
+                 "resistor is not the sole floor.\n")
+        L.append("That ±6.6 % maps directly onto the OTA's gm and UGF "
+                 "(gm = const/R, UGF ≈ gm₁/Cc); it is well inside the phase "
+                 "margin the compensation holds across the §7 corner box, so it "
+                 "does not threaten stability — but it is the honest bias-side "
+                 "spread, and it is now measured rather than deferred. Still far "
+                 "better than leaving gm to µCox (±20–30 %), the whole reason to "
+                 "build a constant-gm reference. Post-layout, the input-pair "
+                 "matching is the remaining Monte-Carlo item.\n")
 
     p = Path(ROOT / "docs" / "biasgen.md")
     p.write_text("\n".join(L) + "\n", encoding="utf-8")
@@ -395,6 +455,10 @@ def main():
               flush=True)
     if what in ("poly", "all"):
         poly = bench_poly_pvt()
+    if what == "polymc":
+        n = int(sys.argv[2]) if len(sys.argv) > 2 else 30
+        bench_poly_mc(n)
+        return
     write(op, start, start_no, pvt, integ, poly)
 
 
