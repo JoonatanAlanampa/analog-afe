@@ -2,7 +2,8 @@
 out/
 __pycache__/
 *.pyc
-# layout artefacts — regenerate with `python layout/build.py`
+# layout artefacts — regenerate with `python layout/build.py` (miller_ota) and
+# `python layout/build_rrf2.py` (miller_rrf2); `layout/verify.py` runs both
 layout/out/
 # parasitic-annotated netlists — regenerate with `python tb/parasitics.py`
 spice/miller_ota_par*.sp
