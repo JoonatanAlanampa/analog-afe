@@ -29,8 +29,11 @@ STYLE = [
     (D.POLY_RES, "#f0d000", 0.40, "poly_res"),
     (D.LI, "#b8931e", 0.50, "li"),
     (D.MET1, "#1e3ac0", 0.45, "met1"),
+    (D.MET2, "#a04ec0", 0.35, "met2"),
     (D.MET3, "#3a6ac0", 0.35, "met3"),
     (D.CAPM, "#d04878", 0.45, "capm (MIM)"),
+    (D.VIA, "#404040", 0.90, "via (m1-m2)"),
+    (D.VIA2, "#404040", 0.90, "via2"),
     (D.VIA3, "#303030", 0.90, "via3"),
     (D.MET4, "#20a090", 0.40, "met4"),
     (D.LICON, "#111111", 0.95, "licon"),
@@ -38,7 +41,11 @@ STYLE = [
 ]
 
 
-def render(cellname, title, fingers_label=None, finger_y=7.35, nets=False):
+def render(cellname, title, fingers_label=None, finger_y=7.35, nets=False,
+           skip_above=None):
+    """`skip_above` drops labels above a y — miller_rrf2's routing channel
+    carries 39 per-pin tags at nearly the same height, which are there for the
+    extraction check, not for reading. The channel's geometry still shows."""
     lib = gdstk.read_gds(str(OUT / f"{cellname}.gds"))
     cell = next(c for c in lib.cells if c.name == cellname)
     fig, ax = plt.subplots(figsize=(11, 8.5))
@@ -54,6 +61,8 @@ def render(cellname, title, fingers_label=None, finger_y=7.35, nets=False):
                     fontweight="bold", color=col)
     if nets:
         for lb in cell.labels:
+            if skip_above is not None and lb.origin[1] > skip_above:
+                continue
             ax.text(lb.origin[0], lb.origin[1], lb.text, ha="center",
                     va="center", fontsize=8.5, fontweight="bold", color="white",
                     bbox=dict(boxstyle="round,pad=0.15", fc="#222222", ec="none",
@@ -112,3 +121,34 @@ if __name__ == "__main__":
            "(W150) | Rz 10k | Cc 4pF;  rails + n2/vb + the Rz/Cc Miller branch\n"
            "all routed. DRC-clean + extraction-verified (10 devices, W's, nets, "
            "body ties)", nets=True)
+
+    # ---- miller_rrf2: the spec-meeting amplifier -------------------------
+    render("rrf2_nin", "rrf2_nin — miller_rrf2's NMOS high side: tail mirror "
+           "(xmb/xm0, W20) under the common-centroid input pair (xm1/xm2, W40)\n"
+           "the pair's drains leave as the FOLD nodes fa (outer cols, met1) and "
+           "fb (centre col, li) — unpinned, which is what kills the 1.40 V wall\n"
+           "DRC-clean + LVS MATCH", nets=True)
+    render("rrf2_fold", "rrf2_fold — the PMOS fold: top sources xm9/xm10 (W30, "
+           "common-centroid) feeding fa/fb, cascodes xm11/xm12 (W40) down to "
+           "ca/cb\nxm11/xm12 share only their gate (sources are fa and fb), so "
+           "they cannot interleave — two separate 2-finger devices\n"
+           "DRC-clean + LVS MATCH", nets=True)
+    render("rrf2_cmir", "rrf2_cmir — the self-biased cascode mirror, THE fix of "
+           "miller_rrf2 (xm13/xm14 mirror, xm15/xm16 cascode, all W20)\n"
+           "both references diode-connected, so the reference leg carries the "
+           "ACTUAL folded current and self-matches — a wide-swing cascode with "
+           "an independent bias collapsed\nDRC-clean + LVS MATCH", nets=True)
+    render("rrf2_plow", "rrf2_plow — the PMOS low side: tail xmp0 (W60) over the "
+           "input pair xmp1/xmp2 (W60) over their NMOS mirror load xmp3/xmp4 "
+           "(W30)\nscaled 1.5x vs the high side — the margin tune that lifted "
+           "the trough gain and took the temperature corners under 0.1 %\n"
+           "gates escape UPWARD: nP and cb already fill the gap below\n"
+           "DRC-clean + LVS MATCH", nets=True)
+    render("miller_rrf2", "miller_rrf2 — the whole spec-meeting amplifier, "
+           "FROM-SCRATCH LAYOUT (25 transistors + Rz + Cc, 177 x 96 µm)\n"
+           "bias | NMOS input | fold | cascode mirror | PMOS low side | class-A "
+           "output (reused) | Rz 10k | Cc 9pF\ntwo-layer channel above: one met3 "
+           "track per net, one met2 riser per pin\n"
+           "DRC-clean + every block LVS MATCH + extraction-verified "
+           "(27 devices, 14 nets, body ties, polarity)", nets=True,
+           skip_above=78.0)

@@ -23,7 +23,8 @@ def sh(script):
 
 if __name__ == "__main__":
     print("=== build ===")
-    sh("build.py")
+    sh("build.py")            # miller_ota leg (tapeout-prepped, do not disturb)
+    sh("build_rrf2.py")       # miller_rrf2 leg (the spec-meeting amplifier)
     print("=== DRC (sky130A_mr) ===")
     drc = sh("run_drc.py")
     print("=== LVS (sky130.lvs) ===")
@@ -32,7 +33,9 @@ if __name__ == "__main__":
     passives = sh("run_passive_extract.py")
     print("=== whole-amp extract (miller_ota device set + connectivity) ===")
     amp = sh("run_amp_extract.py")
-    if drc or lvs or passives or amp:
+    print("=== whole-amp extract (miller_rrf2 device set + connectivity) ===")
+    rrf2 = sh("run_rrf2_extract.py")
+    if drc or lvs or passives or amp or rrf2:
         sys.exit("layout regression FAILED")
     print("\nLAYOUT REGRESSION CLEAN — all cells DRC-clean, all LVS matched, "
-          "passives extract-verified, whole amp connectivity-verified")
+          "passives extract-verified, both amplifiers connectivity-verified")

@@ -24,6 +24,10 @@ import run_lvs as L          # reuse its PDK/KLayout paths + patched deck
 PASSIVES = [
     ("res_rz", "sky130_fd_pr__res_xhigh_po_0p69", "R", 10000.0, 0.02),
     ("cap_cc", "sky130_fd_pr__model__cap_mim",    "C", 4e-12,   0.02),
+    # miller_rrf2 runs the same 10 k nulling resistor but Cc = 9 p (the
+    # margin-tuning pass raised it from 8 p to hold PM >= 73 deg once the PMOS
+    # low-side path was scaled 1.5x), so it gets its own, bigger MIM plate.
+    ("cap_cc9", "sky130_fd_pr__model__cap_mim",   "C", 9e-12,   0.02),
 ]
 
 

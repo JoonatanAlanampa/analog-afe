@@ -318,3 +318,197 @@ place. `layout/verify.py` stayed green throughout.
 Still on the shelf (not gaps in *this* amp): a wider-ICMR input (rail-to-rail /
 complementary pair) for THD < 0.1 % at full 1 Vpp, and real poly-R Monte-Carlo
 signoff.
+
+# miller_rrf2 — the spec-meeting amplifier, laid out from scratch
+
+Everything above draws `miller_ota`. But `miller_ota` is **not** the amplifier
+that met the distortion target: [`input-stage.md`](input-stage.md) traced its
+0.167 % residual at 1 Vpp to the input common-mode range and closed it with
+**`miller_rrf2`** — a folded rail-to-rail input summed at a **self-biased
+cascoded** node — which is robustly **under 0.1 % THD at 1 kHz across the full
+PVT box** (0.046–0.092 %). That left the leg with a design and a layout that were
+out of sync: the winning circuit had no geometry, and the drawn geometry was the
+superseded circuit.
+
+This closes it. `miller_rrf2` is now drawn, in `layout/build_rrf2.py` — `build.py`
+is untouched, so `miller_ota` stays exactly as its tapeout-prep pass left it and
+the two amplifiers now sit side by side in the same regression.
+
+![The whole miller_rrf2 amplifier: seven device blocks in a row — bias chain, NMOS input, PMOS fold, cascode mirror, PMOS low side, class-A output — with the nulling resistor and the 9 pF MIM cap at the right, and a two-layer routing channel of horizontal met3 tracks and vertical met2 risers running above the whole row.](img/layout_miller_rrf2.png)
+
+## What the topology costs in geometry
+
+| | miller_ota | **miller_rrf2** |
+|---|---|---|
+| transistors | 8 (+ Rz + Cc) | **25** (+ Rz + Cc) |
+| device blocks | 2 + 2 passives | **5 new + 2 reused + 2 passives** |
+| top-level nets routed | 4 | **14** |
+| Cc | 4 pF | **9 pF** |
+| drawn area | 76 × 53 µm = 4 044 µm² | **177 × 96 µm = 17 070 µm²** |
+
+**Stage 2 and the nulling resistor are reused verbatim.** `miller_rrf2` runs the
+same `pout = 2.5` output stage and the same 10 kΩ `Rz` as the applied THD fix, so
+`out_stage` (W = 150 / W = 150) and `res_rz` are instanced unchanged — a real
+dividend from having verified them as standalone blocks. Only the cap changes:
+the margin-tuning pass raised `Cc` to 9 pF to hold PM ≥ 73° once the PMOS
+low-side path was scaled 1.5×, so `cap_cc9` is a 67.08 µm MIM plate
+(extraction-verified at **C = 8.999 pF**).
+
+## The five new blocks
+
+| block | devices | idiom |
+|---|---|---|
+| `rrf2_nin` | xmb, xm0 (W20) + xm1, xm2 (W40) | tail mirror + common-centroid pair |
+| `rrf2_fold` | xm9, xm10 (W30) + xm11, xm12 (W40) | common-gate dual leg + 2 separate cascodes |
+| `rrf2_cmir` | xm13–xm16 (W20) | common-centroid mirror + stacked cascodes |
+| `rrf2_plow` | xmp0 (W60), xmp1, xmp2 (W60), xmp3, xmp4 (W30) | tail + pair + mirror load |
+| `rrf2_bias_n` / `rrf2_bias_p` | xbn1–3 / xbp1–3 | the bias chain, split at pb/pc/vbp |
+
+Each is **DRC-clean and LVS-matched against a reference netlist** taken straight
+off `spice/miller_rrf2.sp`, before anything was assembled.
+
+![rrf2_nin: the NMOS tail mirror under the common-centroid input pair, with the pair drains leaving upward as the fold nodes fa (outer columns, met1) and fb (centre column, li).](img/layout_rrf2_nin.png)
+
+### Common-centroid has a hard precondition, and four of these devices fail it
+
+The A-B-B-A interleave that every matched pair in `miller_ota` uses needs the two
+devices to **share a terminal**: in a 4-finger strip the columns between adjacent
+A and B fingers are physically one diffusion, so they *must* be one net. That is
+fine for a differential pair (shared source) or a mirror (shared source and gate)
+— and it is impossible for `xm11`/`xm12`, whose sources are the two *different*
+fold nodes `fa` and `fb`, and for `xm15`/`xm16`, whose sources are `yref` and
+`cbm`. Those four are drawn as **separate 2-finger devices**, which is also the
+natural floorplan: each cascode sits directly over the leg it cascodes.
+
+![rrf2_fold: the PMOS fold — common-centroid top sources xm9/xm10 feeding fa and fb, with xm11 and xm12 drawn as two separate 2-finger cascodes below, one under each fold node.](img/layout_rrf2_fold.png)
+
+### The interleave then dictates the routing layers
+
+The same interleave has a second consequence that drove nearly every routing
+decision in the leg. Device A's private terminal always lands on the **outer**
+columns and B's on the **centre** one — so A's net has to be *bridged across the
+middle*, exactly where B's riser is. The resolution is the invariant the whole
+file is built on: **the outer net routes on met1, the centre net on li**, and the
+bridge crosses the riser on a different layer. It is not a preference; with only
+li and met1 inside a block there is no other way to get both out on the same side.
+
+![rrf2_cmir: the self-biased cascode mirror — xm13/xm14 interleaved common-centroid at the bottom, xm15 and xm16 stacked above as separate devices, yref on li and cbm bridged on met1.](img/layout_rrf2_cmir.png)
+
+That is also why **`rrf2_plow`'s input gates escape upward**, which looks
+gratuitous next to `miller_ota`, where they escape down. The gap below the PMOS
+pair already carries `nP` (outer, met1) and `cb` (centre, li) — both layers
+spoken for — and a `VINN` strap has no choice but to span the middle to reach
+gates g0 and g3. Routed downward it would short one of them. And it is why the
+**bias chain is two cells, not one**: `pb`, `pc`, `vbp` and `vb` are four nets
+that must cross between the PMOS and NMOS halves, in a channel that holds two.
+Splitting at those nets costs nothing, because all three are top-level nets
+anyway — they feed the fold and the low-side path.
+
+![rrf2_plow: the PMOS low side — tail xmp0 over the common-centroid input pair over its NMOS mirror load, with both input gate straps escaping upward because nP and cb already fill the gap below.](img/layout_rrf2_plow.png)
+
+## The top level: a two-layer channel
+
+`miller_ota` had four nets to route and did it ad hoc. Fourteen nets needs a
+discipline, so the assembly uses a proper **channel**: one horizontal **met3**
+track per net above the whole row, one vertical **met2** riser per pin. One layer
+per direction means a riser and a track can never share a layer, so the channel
+is **short-free by construction** — and because `li`/`met1` stay inside the
+blocks, met2 crosses any block freely and met3 crosses any riser freely.
+
+The blocks are placed in signal order with **disjoint x-windows**, which is the
+other half of the guarantee: every riser lives inside its own block's window, so
+risers from different blocks cannot collide, and only the within-block spacing
+needs checking. `build_rrf2.py` asserts exactly that (`_check_risers()`) before
+drawing anything — risers ≥ 0.5 µm apart within a block, met3 landing pads
+≥ 0.7 µm apart on a shared track — so a bad tap coordinate fails in Python
+immediately instead of in a DRC report several minutes later.
+
+The compensation branch is the exception that still needs hand-routing, and it
+reuses `miller_ota`'s solution: `nz` taps `Rz.M` up to met2 and drops onto the
+`Cc` bottom plate through a via2; `vout` climbs met2 → met3 → met4 and crosses on
+met4 to the top plate. One difference — `vout`'s long run to the cap is on
+**met3**, not met2, because `out_stage`'s VSS and VDD risers already own met2 at
+those x for the full height of the cell.
+
+## Verification — 27 devices, 14 nets, every connection named
+
+The blocks are LVS-compared; the top level is extraction-checked, for the same
+deck reason as `miller_ota` (the poly resistor and the MIM cap cannot be paired
+by a hand-written reference — see the section above). But the extraction check
+here is deliberately **stronger** than `miller_ota`'s, and it had to be.
+
+`miller_ota` could assert net merges by *name*: its merged nets happened to carry
+distinct labels, so a net called `N2|P|n2` was itself proof that three nodes had
+joined. That does not work here — **five different blocks all call the summing
+node `CB`**, so an extracted net named `CB` could equally be one block's pin,
+connected to nothing. So the assembly drops a **unique tag on every riser**
+(`cb_fold`, `cb_cmir`, `cb_plow`, `cb_out`, …) and `run_rrf2_extract.py` asserts
+that all of a net's tags land on **one** extracted net. Every single
+block-to-block connection in the amplifier is therefore individually checked —
+**14 nets, 39 tagged pins** — plus:
+
+- the **device set**: 14 NMOS + 11 PMOS + 1 poly resistor + 1 MIM cap;
+- **body ties**: all 14 NMOS bulks on `VSS`, all 11 PMOS bulks on `VDD` (one
+  substrate p-tap; an n-tap in each of the **four** nwells);
+- **polarity, end to end**: `VINN`→`fa` / `VINP`→`fb` on the NMOS pair *and*
+  `VINP`→`cb` on the PMOS pair. Both pairs work in parallel — that is the whole
+  point of a rail-to-rail input — so getting either one backwards is positive
+  feedback and a latched output. Silent in DC, fatal in silicon, so it earns a
+  regression check.
+
+| cell | DRC (`sky130A_mr`) | LVS / extract |
+|---|---|---|
+| `rrf2_nin` (tail mirror + input pair, W20/W40) | **CLEAN** | **MATCH** |
+| `rrf2_fold` (fold sources + cascodes, W30/W40) | **CLEAN** | **MATCH** |
+| `rrf2_cmir` (self-biased cascode mirror, W20 ×4) | **CLEAN** | **MATCH** |
+| `rrf2_plow` (PMOS tail + pair + mirror, W60/W60/W30) | **CLEAN** | **MATCH** |
+| `rrf2_bias_n` (xbn1/xbn2/xbn3) | **CLEAN** | **MATCH** |
+| `rrf2_bias_p` (xbp1/xbp2/xbp3) | **CLEAN** | **MATCH** |
+| `cap_cc9` (MIM cap, 67.08 µm plate) | **CLEAN** | **C = 8.999 pF ✓** (extract) |
+| `miller_rrf2` (whole amp: 9 blocks, **fully wired**) | **CLEAN** | **27 dev + 14 nets + polarity ✓** (extract) |
+
+`python layout/verify.py` runs both amplifiers end to end and reports
+**LAYOUT REGRESSION CLEAN**.
+
+## Lessons banked
+
+- **A 0.01 µm guess is an open circuit.** The li cover over a source/drain licon
+  column does *not* end at `y0 + W` — `device.fet` stacks studs on a 0.34 µm
+  pitch and stops at the last one that fits. The `y0 + W − 0.3` shorthand
+  inherited from the `miller_ota` cells happens to overlap at most widths and
+  **misses by exactly 0.01 µm at W = 20**. DRC caught it as an `li.3` spacing
+  violation, which was luck — a slightly wider gap would have been a silent open.
+  It is now computed (`li_col_top`), not eyeballed.
+- **Gate length changes the clearance around a gate contact.** At L = 1 the poly
+  contact pad sits 0.315 µm from the outer S/D li riser; at **L = 0.5 it sits
+  0.145 µm**, under the 0.17 µm li spacing. Where the two are the same net (a
+  diode node) the fix is to *merge* them by pulling the strap down to the pad
+  bottom, not to jog around.
+- **A via pad is bigger than the bar it lands on.** A `via2` met1 pad is 0.32 µm
+  square while a routing bar is 0.30 µm tall, so the pad protrudes 0.01 µm above
+  and below — and in that sliver it can violate spacing against a neighbouring
+  riser that the bar itself merges with harmlessly. Three tap coordinates moved
+  for this.
+- **A label that misses its shape is a silent hole in the check.** Two nwell-tap
+  labels were placed just outside their tap's `li` and attached to nothing, and a
+  `VNW` label landed on a passing `li` riser instead of its own well. Neither is
+  a connectivity bug — but the first would have quietly weakened the very
+  assertion it exists to make, which is worse than a loud failure.
+- **Blocks composed cheaply this time.** The `miller_ota` leg's headline lesson
+  was that a standalone-clean block does not compose for free. Here five of the
+  seven blocks were DRC-clean and LVS-matched on the *first* run, and the
+  assembled amplifier needed two fixes in total. The difference is that the
+  blocks were drawn already knowing which side each net had to leave from — the
+  composition constraint was an input to the geometry rather than a discovery
+  after it.
+
+## What this does and does not close
+
+The layout now matches the amplifier the benches actually selected, so the
+design/layout desync is closed. **Not** closed, and not reopened here: the
+**20 kHz band-top**, which is 0.11–0.23 % over corners and never was robustly
+under 0.1 % in any version — that is beyond this topology on a 1.8 V rail (it
+would need a gain-boosted cascode or materially more loop-gain bandwidth), and
+the spec point is 1 kHz. Next on the shelf: parasitic RC re-simulation of the
+real `miller_rrf2` interconnect (the `miller_ota` pass found ~14 fF against a
+4 pF Cc; this layout is larger but its Cc is 9 pF), and phase 3, the comparator.

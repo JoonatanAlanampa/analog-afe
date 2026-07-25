@@ -33,10 +33,14 @@ routed and **LVS-clean**, and both passives (the **nulling resistor** and the
 four blocks are then **assembled and fully wired into the amplifier**
 ([see below](#phase-2--layout-the-whole-amplifier-drawn)) — every net routed
 (rails, `n2`, `vb`, and the whole `Rz`/`Cc` compensation branch), DRC-clean and
-**extraction-verified** to be exactly the `miller_ota` circuit. `layout/verify.py`
-runs the whole DRC + LVS + extract regression green — 13 cells DRC-clean, 7
-LVS-matched, both passives + the whole amp extraction-verified
-([`docs/layout.md`](docs/layout.md)).
+**extraction-verified** to be exactly the `miller_ota` circuit. And the amplifier
+that actually *meets* the distortion spec — **`miller_rrf2`**, the folded
+rail-to-rail input with a self-biased cascoded summing node — is now **laid out
+from scratch too** (25 transistors, 177 × 96 µm, seven blocks + a two-layer
+routing channel), so the design and the geometry are back in sync.
+`layout/verify.py` runs the whole DRC + LVS + extract regression green — 21 cells
+DRC-clean, 13 LVS-matched, three passives and **both** amplifiers
+extraction-verified ([`docs/layout.md`](docs/layout.md)).
 
 ## The block under design
 
@@ -295,3 +299,29 @@ net by its labels, so `n2` comes out as `N2|P|n2` (stage-1 output = `xm5` gate =
 ([`run_amp_extract.py`](layout/run_amp_extract.py)).
 
 ![The whole two-stage Miller op-amp in sky130 layout, fully wired: the 5T OTA first stage (three stacked common-centroid strips), the class-A output stage, the xhigh_po nulling resistor and the MIM compensation cap; the VDD/VSS rails, the n2 inter-stage signal, the shared vb bias and the complete Rz/Cc compensation branch are all routed over the cells on metal2/3/4. DRC-clean.](docs/img/layout_miller_ota.png)
+
+### …and `miller_rrf2`, the amplifier that actually meets the spec
+
+`miller_ota` is not the winner: `docs/input-stage.md` traced its 0.167 % residual
+at 1 Vpp to the input common-mode range and closed it with **`miller_rrf2`** — a
+folded rail-to-rail input summed at a **self-biased cascoded** node, robustly
+**under 0.1 % THD at 1 kHz across the full PVT box**. So the winning circuit had
+no geometry while the drawn geometry was the superseded circuit. That desync is
+now closed: `miller_rrf2` is drawn **from scratch** in
+[`layout/build_rrf2.py`](layout/build_rrf2.py) — **25 transistors + Rz + Cc,
+177 × 96 µm** — with `miller_ota` and its cells left untouched.
+
+Five new blocks (NMOS input, PMOS fold, the cascode mirror, the PMOS low side and
+the two halves of the bias chain) are each **DRC-clean and LVS-matched** against a
+reference netlist taken straight off `spice/miller_rrf2.sp`; the class-A output
+stage and the 10 kΩ nulling resistor are **reused verbatim** (rrf2 runs the same
+`pout = 2.5` stage 2), and only the compensation cap changes — 9 pF, extraction-
+verified. Fourteen top-level nets are routed as a proper **two-layer channel**:
+one horizontal met3 track per net, one vertical met2 riser per pin, blocks placed
+on disjoint x-windows so the channel is short-free by construction. The whole
+amplifier is **extraction-verified** — 27 devices, all 14 nets proved connected
+*pin by pin* through unique per-riser tags, every body tied, and the input
+polarity asserted on **both** pairs
+([`run_rrf2_extract.py`](layout/run_rrf2_extract.py)).
+
+![The whole miller_rrf2 amplifier in sky130 layout: seven device blocks in a row — bias chain, NMOS input pair, PMOS fold, self-biased cascode mirror, PMOS low side and the reused class-A output — with the nulling resistor and the 9 pF MIM capacitor to the right, and a two-layer routing channel of horizontal met3 tracks and vertical met2 risers carrying all fourteen nets above the row. DRC-clean.](docs/img/layout_miller_rrf2.png)

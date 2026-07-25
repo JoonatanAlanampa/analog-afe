@@ -213,6 +213,30 @@ Console roles (why each block exists):
       2× pessimistic. `layout/verify.py` green throughout.
       - Still on the shelf: a wider-ICMR input (rail-to-rail / complementary pair)
         for THD < 0.1 % at full 1 Vpp; real poly-R Monte-Carlo signoff.
+- [x] **`miller_rrf2` LAID OUT FROM SCRATCH — DONE 2026-07-25** (`layout/
+      build_rrf2.py`, `layout/run_rrf2_extract.py`, figure
+      `docs/img/layout_miller_rrf2.png`). Closes the design/layout desync: the
+      amplifier that actually meets the spec (folded rail-to-rail input +
+      self-biased cascoded summing node, robust < 0.1 % THD @1 kHz over full PVT)
+      had no geometry, while the drawn `miller_ota` was the superseded circuit.
+      **25 transistors + Rz + Cc, 177 × 96 µm (17 070 µm² vs miller_ota's 4 044).**
+      Five new blocks — `rrf2_nin`, `rrf2_fold`, `rrf2_cmir`, `rrf2_plow`,
+      `rrf2_bias_n`/`_p` — each **DRC-clean + LVS MATCH** against a reference taken
+      off `spice/miller_rrf2.sp`; `out_stage` (W=150, same pout=2.5) and `res_rz`
+      (10 kΩ) **reused verbatim**; only `cap_cc9` is new (9 pF, 67.08 µm plate,
+      extract-verified 8.999 pF). Top level routed as a **two-layer channel** (one
+      met3 track per net, one met2 riser per pin, blocks on disjoint x-windows →
+      short-free by construction; `_check_risers()` asserts the spacing in Python
+      before drawing). Whole-amp **extraction-verified**: 27 devices, **all 14 nets
+      proved connected pin-by-pin** via unique per-riser tags (five blocks all call
+      the summing node `CB`, so a merged-name check would prove nothing), 4 nwell
+      ties + substrate tie, and polarity on **both** input pairs. `miller_ota` and
+      its layout are UNTOUCHED; `layout/verify.py` runs both amplifiers green.
+      - Deliberately NOT reopened: the 20 kHz band-top (0.11–0.23 % over corners,
+        never robust in any version — beyond this topology on 1.8 V; spec point is
+        1 kHz).
+      - Next on this leg: parasitic RC re-sim of the real `miller_rrf2`
+        interconnect (bigger layout, but Cc is 9 pF not 4 pF).
 
 ## Phase 3 — comparator
 

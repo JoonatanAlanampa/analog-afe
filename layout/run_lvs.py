@@ -91,6 +91,61 @@ M3 n1 n1 vdd vnw sky130_fd_pr__pfet_01v8 L=1u W=20u
 M4 vout n1 vdd vnw sky130_fd_pr__pfet_01v8 L=1u W=20u
 .ends
 """,
+    # ---- miller_rrf2 blocks (build_rrf2.py). Sizing straight off
+    # spice/miller_rrf2.sp, where a device is w=5 m=N -> W = 5N um. ----------
+    # NMOS high side: tail mirror (tail internal) + the input pair, whose drains
+    # go to the FOLD nodes fa/fb instead of a mirror load -- that unpinning is
+    # what removes miller_ota's 1.40 V ICMR wall.
+    "rrf2_nin": """.subckt rrf2_nin vinp vinn fa fb vb vss vnb
+Mb vb vb vss vnb sky130_fd_pr__nfet_01v8 L=1u W=20u
+M0 tail vb vss vnb sky130_fd_pr__nfet_01v8 L=1u W=20u
+M1 fa vinn tail vnb sky130_fd_pr__nfet_01v8 L=0.5u W=40u
+M2 fb vinp tail vnb sky130_fd_pr__nfet_01v8 L=0.5u W=40u
+.ends
+""",
+    # the self-biased cascode mirror: xm13/xm14 mirror, xm15/xm16 cascode over
+    # it. Both reference devices are diode-connected (xm15 gate=drain=ca,
+    # xm13 gate=drain=yref) -- that is what self-matches the actual folded
+    # current; a wide-swing cascode with an independent reference collapsed.
+    "rrf2_cmir": """.subckt rrf2_cmir ca cb vss vnb
+M13 yref yref vss vnb sky130_fd_pr__nfet_01v8 L=0.5u W=20u
+M14 cbm yref vss vnb sky130_fd_pr__nfet_01v8 L=0.5u W=20u
+M15 ca ca yref vnb sky130_fd_pr__nfet_01v8 L=0.5u W=20u
+M16 cb ca cbm vnb sky130_fd_pr__nfet_01v8 L=0.5u W=20u
+.ends
+""",
+    # bias chain, split at pb/pc/vbp (which are top-level nets anyway)
+    "rrf2_bias_n": """.subckt rrf2_bias_n vb pb pc vbp vss vnb
+Mn1 pb vb vss vnb sky130_fd_pr__nfet_01v8 L=1u W=5u
+Mn3 vbp vb vss vnb sky130_fd_pr__nfet_01v8 L=1u W=5u
+Mn2 pc pc vss vnb sky130_fd_pr__nfet_01v8 L=1u W=20u
+.ends
+""",
+    "rrf2_bias_p": """.subckt rrf2_bias_p pb pc vbp vdd vnw
+Mp1 pb pb vdd vnw sky130_fd_pr__pfet_01v8 L=1u W=10u
+Mp2 pc pb vdd vnw sky130_fd_pr__pfet_01v8 L=1u W=10u
+Mp3 vbp vbp vdd vnw sky130_fd_pr__pfet_01v8 L=1u W=10u
+.ends
+""",
+    # PMOS half of the fold: top sources into fa/fb, cascodes down to ca/cb.
+    "rrf2_fold": """.subckt rrf2_fold pb pc fa fb ca cb vdd vnw
+M9 fa pb vdd vnw sky130_fd_pr__pfet_01v8 L=1u W=30u
+M10 fb pb vdd vnw sky130_fd_pr__pfet_01v8 L=1u W=30u
+M11 ca pc fa vnw sky130_fd_pr__pfet_01v8 L=0.5u W=40u
+M12 cb pc fb vnw sky130_fd_pr__pfet_01v8 L=0.5u W=40u
+.ends
+""",
+    # the low-side path: PMOS tail + pair over an NMOS mirror load. Scaled 1.5x
+    # vs the high side (W60/W60/W30) -- the margin tune that lifted the trough
+    # gain and took the temperature corners under 0.1 %.
+    "rrf2_plow": """.subckt rrf2_plow vbp vinp vinn cb vdd vss vnb vnw
+Mp0 tailp vbp vdd vnw sky130_fd_pr__pfet_01v8 L=1u W=60u
+Mp1 np vinn tailp vnw sky130_fd_pr__pfet_01v8 L=0.5u W=60u
+Mp2 cb vinp tailp vnw sky130_fd_pr__pfet_01v8 L=0.5u W=60u
+Mp3 np np vss vnb sky130_fd_pr__nfet_01v8 L=1u W=30u
+Mp4 cb np vss vnb sky130_fd_pr__nfet_01v8 L=1u W=30u
+.ends
+""",
 }
 
 
