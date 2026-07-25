@@ -42,6 +42,16 @@ routing channel), so the design and the geometry are back in sync.
 DRC-clean, 13 LVS-matched, three passives and **both** amplifiers
 extraction-verified ([`docs/layout.md`](docs/layout.md)).
 
+**The parasitic pass on that new layout then found a real spec failure**, which
+is what it is for: with its own extracted interconnect `miller_rrf2`'s
+worst-corner phase margin lands at **59.7°, under the 60° spec** — it was signed
+off with 2.8° of margin at that corner and its layout costs 3.1°
+([`docs/parasitics-rrf2.md`](docs/parasitics-rrf2.md)). The cause is *not* where
+I predicted: 193 fF spread over the bias nets costs nothing, while 103 fF on four
+signal-path nodes costs the whole 3.1°, because `Rz` in series with `Cc` means
+the Miller cap stops shunting the summing node above 1.8 MHz. Fix identified and
+priced, deliberately **not** applied — see below.
+
 ## The block under design
 
 Not "an op-amp" — the console's **audio output buffer**. Today the
@@ -142,13 +152,19 @@ python tb/corners.py             # PVT corners + Monte Carlo offset -> docs/corn
 python tb/thd.py                 # THD vs level / freq / topology / drive -> docs/thd.md
 python tb/cmrr.py                # CMRR + ICMR (+ the ICMR/THD cross-check) -> docs/cmrr.md
 python tb/biasgen.py             # constant-gm bias reference + start-up -> docs/biasgen.md
+python tb/input_stage.py op miller_rrf2   # wider-ICMR candidates -> docs/input-stage.md
+python tb/parasitics.py          # miller_ota post-layout RC -> docs/parasitics.md
+python tb/parasitics_rrf2.py     # miller_rrf2 post-layout RC -> docs/parasitics-rrf2.md
+python tb/parasitics_rrf2.py --report   # re-render from cached data (no re-sim)
 ```
 
 Results: [`docs/results.md`](docs/results.md),
 [`docs/compensation.md`](docs/compensation.md),
 [`docs/noise.md`](docs/noise.md), [`docs/corners.md`](docs/corners.md),
-[`docs/thd.md`](docs/thd.md), [`docs/cmrr.md`](docs/cmrr.md) and
-[`docs/biasgen.md`](docs/biasgen.md). Spec targets are asserted in `SPEC`
+[`docs/thd.md`](docs/thd.md), [`docs/cmrr.md`](docs/cmrr.md),
+[`docs/biasgen.md`](docs/biasgen.md), [`docs/input-stage.md`](docs/input-stage.md)
+and the two post-layout passes [`docs/parasitics.md`](docs/parasitics.md) /
+[`docs/parasitics-rrf2.md`](docs/parasitics-rrf2.md). Spec targets are asserted in `SPEC`
 in `tb/run.py` and print PASS/FAIL per row.
 
 ## For the reviewer
@@ -325,3 +341,34 @@ polarity asserted on **both** pairs
 ([`run_rrf2_extract.py`](layout/run_rrf2_extract.py)).
 
 ![The whole miller_rrf2 amplifier in sky130 layout: seven device blocks in a row — bias chain, NMOS input pair, PMOS fold, self-biased cascode mirror, PMOS low side and the reused class-A output — with the nulling resistor and the 9 pF MIM capacitor to the right, and a two-layer routing channel of horizontal met3 tracks and vertical met2 risers carrying all fourteen nets above the row. DRC-clean.](docs/img/layout_miller_rrf2.png)
+
+### The parasitic pass on it found a spec failure
+
+`miller_ota`'s interconnect came to ~14 fF and moved phase margin 0.13° — a
+formality. `miller_rrf2` is a different shape of problem: 4× the area and a
+14-net routing channel, so **296.6 fF**, and the answer stops being obvious.
+[`tb/parasitics_rrf2.py`](tb/parasitics_rrf2.py) extracts it from the drawn GDS —
+with the seeds *generated from the layout's own routing tables*, so no wire can
+be silently missed — and re-simulates. Nominal phase margin moves 73.3° → 70.1°,
+which looks fine, and would have been the whole story if I had stopped there.
+
+Over the full PVT grid it is not fine: **worst-corner phase margin is 59.7°,
+0.3° under the 60° spec**, at the **high-supply** corner (more supply → more gm →
+higher UGF → less margin; THD is bounded by the *temperature* corners instead —
+two different corners bound this amplifier). `miller_rrf2` was signed off with
+2.8° of margin at that corner while its own layout costs 3.1°. THD is untouched.
+
+The per-net sensitivity then **refuted the mechanism I predicted**. I expected
+the summing node `cb` to be nearly free behind its 9 pF Miller cap; measured, it
+is 62 % of the entire loss. `Rz` is in *series* with `Cc`, so above 1.8 MHz the
+Miller branch sits at its resistive 10 kΩ floor and stops shunting `cb` at all —
+the very property that made `Rz` the phase-margin lever, now a liability. And the
+cost tracks **signal path, not capacitance**: 103 fF on `cb`/`ca`/`fa`/`fb` costs
+−3.15°, while 193 fF on the eight bias and input nets costs 0.00°.
+
+That makes the fix cheap and specific: those four nets connect *adjacent* blocks
+and were sent up into the channel only because the router treated all fourteen
+alike. Bigger `Cc` is the obvious lever and a weak one — 9→13 pF buys 1.0° and
+costs 3.1 dB of 20 kHz loop gain. **Nothing was applied**: both options move a
+corner-verified operating point or need a layout re-verify, so they are measured,
+priced and left as a decision.

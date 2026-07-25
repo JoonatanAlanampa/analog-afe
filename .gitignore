@@ -7,3 +7,4 @@ __pycache__/
 layout/out/
 # parasitic-annotated netlists — regenerate with `python tb/parasitics.py`
 spice/miller_ota_par*.sp
+spice/miller_rrf2_par*.sp

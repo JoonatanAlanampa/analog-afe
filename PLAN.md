@@ -235,8 +235,41 @@ Console roles (why each block exists):
       - Deliberately NOT reopened: the 20 kHz band-top (0.11–0.23 % over corners,
         never robust in any version — beyond this topology on 1.8 V; spec point is
         1 kHz).
-      - Next on this leg: parasitic RC re-sim of the real `miller_rrf2`
-        interconnect (bigger layout, but Cc is 9 pF not 4 pF).
+- [x] **PARASITIC RC RE-SIM OF THE rrf2 LAYOUT — DONE 2026-07-25**
+      (`tb/parasitics_rrf2.py` -> `docs/parasitics-rrf2.md`). **It found a real
+      spec failure, which is the point of running it.** Extracted **296.6 fF**
+      of interconnect from `miller_rrf2.gds` (21x miller_ota's 14 fF; seeds
+      GENERATED from `build_rrf2.TAPS`/`.TRACK` so no wire can be missed, zero
+      misses). Nominal PM 73.3 -> 70.1 deg. But over the full PVT grid the
+      **worst-corner PM falls to 59.7 deg at tt/+25 C/1.98 V — UNDER the 60 deg
+      spec of row 8**, which `tb/run.py` asserts: rrf2 was signed off with 2.8
+      deg of margin at that corner while its own layout costs 3.1 deg. THD is
+      untouched (0.057 % nominal, 0.092 % at ff/+85 C, both with parasitics).
+      - **The failing corner is HIGH SUPPLY (+10 %), not a temperature extreme**
+        (more supply -> more gm -> higher UGF -> less margin). THD is bounded by
+        the temperature corners. Two different corners bound this amplifier.
+      - **PREDICTION REFUTED BY MEASUREMENT** (per-net sensitivity): I expected
+        `cb` to be nearly free behind the 9 pF Cc and the damage to be on the
+        fold nodes. Measured, **`cb` is 62 % of the loss** (-1.95 deg of -3.13).
+        Cause: `Rz` is in SERIES with `Cc`, so above 1/(2*pi*Rz*Cc) = 1.8 MHz the
+        Miller branch sits at its resistive 10 k floor and does NOT shunt `cb` at
+        the 18 MHz UGF. The same property that made Rz the PM lever (design-notes
+        7) is what exposes the node here.
+      - **Cost tracks SIGNAL PATH, not capacitance**: 103 fF on cb/ca/fa/fb costs
+        -3.15 deg; **193 fF on the eight bias/input nets costs 0.00 deg** (`vb`
+        carries 42.5 fF for nothing). Loading superposes linearly.
+      - **Cc is a WEAK lever**: 9->13 pF buys only 1.0 deg at the worst corner and
+        costs 3.1 dB of 20 kHz loop gain; 10 pF "clears" at 60.1 deg = 0.1 deg on a
+        planar estimate, i.e. a rounding error. The real lever is the LAYOUT —
+        cb/ca/fa/fb connect ADJACENT blocks and never needed the channel at all.
+      - Also quantified: routed length 3 030 um splits 2 470 um of risers vs 561 um
+        of track, and riser length is set by the TALLEST BLOCK (rrf2_plow, 74 um),
+        so one tall block taxes all 37 pins.
+      - NOTHING APPLIED: both fixes (bigger Cc / re-route four nets) are design
+        decisions that move a corner-verified operating point or need a layout
+        re-verify. Measured and priced, left to the user.
+      - `--report` re-renders the doc from `out/parasitics_rrf2.json` without
+        re-simulating (same convention as `tb/sweep_comp.py`).
 
 ## Phase 3 — comparator
 
