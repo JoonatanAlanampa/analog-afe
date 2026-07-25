@@ -537,13 +537,40 @@ PLACE = {
     "cap_cc9": (109.0, 0.0),
 }
 
-# One horizontal met3 track per net, above every block; each pin reaches its
-# track on a vertical met2 riser. Two layers, one direction each, so a riser and
-# a track never share a layer and the whole channel is short-free by
-# construction -- the same discipline a real channel router uses.
+# One horizontal met3 track per net; each pin reaches its track on a vertical
+# met2 riser. Two layers, one direction each, so a riser and a track never share
+# a layer and the whole channel is short-free by construction.
+#
+# TRACK HEIGHT IS NOT ARBITRARY, and the first version got it wrong. The bias,
+# input and rail nets sit in a channel ABOVE every block (y >= 80). The four
+# SIGNAL-PATH nets do not: they run low, down among the blocks they connect.
+#
+# Why the split: tb/parasitics_rrf2.py measured what the interconnect costs, and
+# the answer is entirely lopsided. 193 fF spread over the eight bias/input nets
+# costs 0.00 deg of phase margin -- they are diode-connected or driven, so they
+# sit at 1/gm and do not care. 103 fF on cb/ca/fa/fb costs 3.15 deg, which was
+# enough to push the worst-corner phase margin UNDER the 60 deg spec. cb alone
+# is 62 % of it, because Rz sits in SERIES with Cc: above 1/(2*pi*Rz*Cc) = 1.8 MHz
+# the Miller branch is just a 10 kohm resistor and stops shunting the summing
+# node, so a parasitic there is fully exposed at the ~18 MHz UGF.
+#
+# And the wires were long for a reason that turned out to be a habit: the channel
+# floor was placed above the TALLEST block (rrf2_plow, ~74 um), so all 37 pins
+# climbed ~67 um whether they needed to or not. But met3 is free over every block
+# -- the blocks only use li/met1 -- so a track never had to clear anything. The
+# four nets that matter connect ADJACENT blocks, so their tracks now sit beside
+# their own pins and their risers are a few um instead of tens.
+#
+# The eight that cost nothing are deliberately left where they were: moving
+# verified geometry to buy capacitance that provably does not matter would be
+# rework for its own sake.
 TRACK = {"VSS": 80.0, "VDD": 81.5, "VB": 83.0, "PB": 84.5, "PC": 86.0,
-         "VBP": 87.5, "FA": 89.0, "FB": 90.5, "CA": 92.0, "CB": 93.5,
-         "VINN": 95.0, "VINP": 96.5}
+         "VBP": 87.5, "VINN": 95.0, "VINP": 96.5,
+         # --- signal path: low, among the blocks (see above) ---
+         "CA": 16.0,     # pins at y 0.5 (fold) and 29.5 (cmir)
+         "FA": 31.5,     # pins at y 39.0 (nin) and 25.5 (fold)
+         "CB": 33.0,     # pins at y 0.5 / 19.0 / 29.5 / 37.68 / 50.3
+         "FB": 34.5}     # pins at y 40.6 (nin) and 24.0 (fold)
 
 # (net, block, local x, local y, pin layer, tag). The local x of each tap is
 # picked to clear the block's own met1 by >= 0.14 (a via pad is 0.32 wide) and
@@ -681,7 +708,13 @@ def build_miller_rrf2():
         ty = TRACK[net]
         _m2(top, x, y, x, ty)
         D.via_met2_met3(top, x, ty)
-        D.label(top, tag, x, ty - 0.8, layer=D.MET2LBL)
+        # Label at the riser's MIDPOINT, not a fixed offset below the track.
+        # Now that the signal-path tracks sit low, several pins are ABOVE their
+        # track and the riser runs downward -- `ty - 0.8` would land past the end
+        # of it, on nothing. A label that misses its shape does not fail; it
+        # quietly weakens the extraction assertion it exists to make (this leg
+        # has already been bitten once, by two nwell-tap labels).
+        D.label(top, tag, x, (y + ty) / 2.0, layer=D.MET2LBL)
     for net, ty in TRACK.items():
         xs = [_abs(b, x, 0)[0] for (n, b, x, _y, _k, _t) in TAPS if n == net]
         if net == "CB":                       # CB also reaches Rz.P (below)

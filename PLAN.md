@@ -270,6 +270,34 @@ Console roles (why each block exists):
         re-verify. Measured and priced, left to the user.
       - `--report` re-renders the doc from `out/parasitics_rrf2.json` without
         re-simulating (same convention as `tb/sweep_comp.py`).
+- [x] **THE PM FAILURE IS FIXED — IN THE LAYOUT, NOT THE NETLIST (2026-07-25).**
+      The sensitivity said cb/ca/fa/fb carry 100 % of the cost and connect
+      ADJACENT blocks, so their met3 tracks were dropped DOWN among those blocks
+      (`build_rrf2.TRACK`: CA 16.0, FA 31.5, CB 33.0, FB 34.5) while the eight
+      nets that cost 0.00 deg stay in the high channel. Signal-path wire
+      **750 -> 192 um**, signal-path C **103.5 -> 39.5 fF**.
+      **Worst-corner PM 59.7 -> 61.6 deg = PASSES row 8, and 60.5 deg at 2x
+      pessimistic** (which the first routing failed even at Cc = 13 pF).
+      Loop gain, THD, area, Iq and the operating point are ALL unchanged —
+      the fix cost nothing. `layout/verify.py` + the 14-net extraction check
+      stay green; DRC clean first try.
+      - **ROOT CAUSE was a habit, not a constraint**: the channel floor had been
+        put above the TALLEST block (rrf2_plow, 74 um) because that is what a
+        channel looks like — but the blocks use only li/met1, so **met3 is free
+        over every one of them** and a track never had to clear anything. All 37
+        pins were climbing ~67 um for a clearance that does not exist.
+      - **Bigger Cc was the obvious alternative and is REJECTED ON THE DATA**:
+        10 pF clears by 0.1 deg on a planar estimate, still FAILS at 2x, and costs
+        0.9 dB of 20 kHz loop gain; 13 pF reaches only 60.7 deg (57.8 at 2x) while
+        spending down to 42.9 dB against the 40 dB floor of row 6.
+      - Two bugs the change would have introduced, caught: riser labels were
+        placed at a fixed offset BELOW the track, which lands on nothing once a
+        pin sits above its track (the silent-hole trap again) -> now at the riser
+        midpoint; and `wire_lengths()` summed a SIGNED delta, so downward risers
+        cancelled upward ones and under-reported by 64 um -> now abs().
+      - docs/parasitics-rrf2.md keeps the failure, the fix and the rejected
+        alternative side by side (`FIRST` constants pin the pre-fix numbers to
+        commit 788b5d6); spec.md row 8 now reads PASSES for rrf2.
 
 ## Phase 3 — comparator
 

@@ -10,6 +10,8 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon as MPoly
 from matplotlib.lines import Line2D
 
+import re
+
 import gdstk
 
 import device as D
@@ -42,10 +44,13 @@ STYLE = [
 
 
 def render(cellname, title, fingers_label=None, finger_y=7.35, nets=False,
-           skip_above=None):
-    """`skip_above` drops labels above a y — miller_rrf2's routing channel
-    carries 39 per-pin tags at nearly the same height, which are there for the
-    extraction check, not for reading. The channel's geometry still shows."""
+           skip_above=None, skip_tags=False):
+    """`skip_above` drops labels above a y; `skip_tags` drops the per-pin
+    extraction tags (lowercase with an underscore, e.g. `cb_fold`). miller_rrf2
+    carries 39 of them so that run_rrf2_extract.py can prove each connection
+    individually — they are assertions, not annotation, and once the signal-path
+    tracks moved down among the blocks they land right on top of the geometry.
+    The routing itself still shows."""
     lib = gdstk.read_gds(str(OUT / f"{cellname}.gds"))
     cell = next(c for c in lib.cells if c.name == cellname)
     fig, ax = plt.subplots(figsize=(11, 8.5))
@@ -62,6 +67,8 @@ def render(cellname, title, fingers_label=None, finger_y=7.35, nets=False,
     if nets:
         for lb in cell.labels:
             if skip_above is not None and lb.origin[1] > skip_above:
+                continue
+            if skip_tags and re.fullmatch(r"[a-z0-9]+_[a-z0-9_]+", lb.text):
                 continue
             ax.text(lb.origin[0], lb.origin[1], lb.text, ha="center",
                     va="center", fontsize=8.5, fontweight="bold", color="white",
@@ -147,8 +154,11 @@ if __name__ == "__main__":
     render("miller_rrf2", "miller_rrf2 — the whole spec-meeting amplifier, "
            "FROM-SCRATCH LAYOUT (25 transistors + Rz + Cc, 177 x 96 µm)\n"
            "bias | NMOS input | fold | cascode mirror | PMOS low side | class-A "
-           "output (reused) | Rz 10k | Cc 9pF\ntwo-layer channel above: one met3 "
-           "track per net, one met2 riser per pin\n"
+           "output (reused) | Rz 10k | Cc 9pF\ntwo-layer routing: one met3 track "
+           "per net, one met2 riser per pin — bias/rail tracks in the channel "
+           "above, the four SIGNAL-PATH tracks (ca/fa/cb/fb) low among the "
+           "blocks\n(they carry 100% of the post-layout phase-margin cost; "
+           "routing them high cost 1.9° and failed spec — docs/parasitics-rrf2.md)\n"
            "DRC-clean + every block LVS MATCH + extraction-verified "
            "(27 devices, 14 nets, body ties, polarity)", nets=True,
-           skip_above=78.0)
+           skip_tags=True)

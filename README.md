@@ -42,15 +42,17 @@ routing channel), so the design and the geometry are back in sync.
 DRC-clean, 13 LVS-matched, three passives and **both** amplifiers
 extraction-verified ([`docs/layout.md`](docs/layout.md)).
 
-**The parasitic pass on that new layout then found a real spec failure**, which
-is what it is for: with its own extracted interconnect `miller_rrf2`'s
-worst-corner phase margin lands at **59.7°, under the 60° spec** — it was signed
-off with 2.8° of margin at that corner and its layout costs 3.1°
-([`docs/parasitics-rrf2.md`](docs/parasitics-rrf2.md)). The cause is *not* where
-I predicted: 193 fF spread over the bias nets costs nothing, while 103 fF on four
-signal-path nodes costs the whole 3.1°, because `Rz` in series with `Cc` means
-the Miller cap stops shunting the summing node above 1.8 MHz. Fix identified and
-priced, deliberately **not** applied — see below.
+**The parasitic pass on that new layout found a real spec failure, and fixing it
+is the interesting part.** With its first routing `miller_rrf2`'s worst-corner
+phase margin landed at **59.7°, under the 60° spec**. The cause was *not* where I
+predicted: 193 fF spread over the bias nets cost nothing, while 103 fF on four
+signal-path nodes cost the whole 3.1°, because `Rz` in series with `Cc` means the
+Miller cap stops shunting the summing node above 1.8 MHz. Those four nets connect
+*adjacent* blocks and had been routed up into a channel above the tallest block —
+for a clearance that does not exist, since met3 is free over every block.
+Re-routing them low took their wire from 750 µm to 192 µm and the amplifier now
+**passes at 61.6°, and still passes at 2× pessimistic** — where the obvious
+alternative, a bigger `Cc`, never did ([`docs/parasitics-rrf2.md`](docs/parasitics-rrf2.md)).
 
 ## The block under design
 
@@ -366,9 +368,23 @@ the very property that made `Rz` the phase-margin lever, now a liability. And th
 cost tracks **signal path, not capacitance**: 103 fF on `cb`/`ca`/`fa`/`fb` costs
 −3.15°, while 193 fF on the eight bias and input nets costs 0.00°.
 
-That makes the fix cheap and specific: those four nets connect *adjacent* blocks
-and were sent up into the channel only because the router treated all fourteen
-alike. Bigger `Cc` is the obvious lever and a weak one — 9→13 pF buys 1.0° and
-costs 3.1 dB of 20 kHz loop gain. **Nothing was applied**: both options move a
-corner-verified operating point or need a layout re-verify, so they are measured,
-priced and left as a decision.
+That made the fix cheap and specific. Those four nets connect *adjacent* blocks
+and had been sent up into the channel only because the router treated all fourteen
+alike — and the channel itself sat above the tallest block (`rrf2_plow`, 74 µm)
+for a clearance that does not exist, because the blocks use only li and met1 so
+**met3 is free over every one of them**. Dropping those four tracks down among
+the blocks they serve, and leaving the eight that cost 0.00° exactly where they
+were, took their wire from **750 µm to 192 µm**:
+
+| | first routing | **re-routed** | bigger `Cc` instead |
+|---|---|---|---|
+| worst-corner PM | 59.7° ✗ | **61.6° ✓** | 60.1° (at 10 pF) |
+| at 2× pessimistic | 56.9° ✗ | **60.5° ✓** | 57.2° ✗ |
+| loop gain @ 20 kHz | 46.0 dB | **46.0 dB** | 45.1 dB |
+
+The `Cc` column is why it is worth measuring a fix instead of reaching for the
+familiar one: it clears the nominal spec by 0.1° on a planar estimate, still
+fails at 2× pessimistic, and pays in loop gain — and pushing to 13 pF runs into
+the ≥ 40 dB floor of spec row 6. **Re-routing four wires beat it on every axis
+and cost nothing** — no loop gain, no area, no change to a corner-verified
+operating point. `layout/verify.py` and the extraction check stay green.

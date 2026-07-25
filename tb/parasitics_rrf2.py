@@ -48,6 +48,19 @@ CACHE = OUT / "parasitics_rrf2.json"
 FIX = "pcc=9e-12 prz=10000 pout=2.5"
 CC_FF = 9000.0
 
+# The FIRST routing of this layout -- every net taken up to a channel above the
+# tallest block -- measured by this same bench at commit 788b5d6. It FAILED the
+# 60 deg phase-margin spec, which is why the four signal-path nets were then
+# re-routed low (see build_rrf2.TRACK). Kept here so the doc can show what the
+# fix bought, and so the failure is a recorded result rather than a git
+# archaeology exercise. `git show 788b5d6:docs/parasitics-rrf2.md` has the full
+# original write-up.
+FIRST = dict(commit="788b5d6", sig_ff=103.5, tot_ff=296.59, dpm=-3.13,
+             worst=59.7, worst2x=56.9, a20k=46.0,
+             cb=46.97, ca=19.32, fa=16.82, fb=20.37, routed_um=750.0,
+             cc10_worst=60.1, cc10_2x=57.2, cc10_a20k=45.1,
+             cc13_worst=60.7, cc13_2x=57.8, cc13_a20k=42.9)
+
 # The compensation branch is hand-routed in build_miller_rrf2, so it is
 # hand-seeded here: (net, layer, point).
 EXTRA = [
@@ -94,15 +107,18 @@ def wire_lengths():
     """Routed length per net, split into vertical met2 risers and horizontal
     met3 track, straight off the routing tables.
 
-    This is what turns the capacitance number into a floorplan statement. The
-    risers dominate by ~4x, and a riser's length is not a property of its net at
-    all -- it is the distance from the pin up to the channel floor, and the
-    channel floor is set by the TALLEST BLOCK in the row. So one tall block taxes
-    every pin in the design."""
+    This is what turns the capacitance number into a floorplan statement: a
+    riser's length is not a property of its net, it is the distance from the pin
+    to its track, so where the track sits decides the wire.
+
+    abs() is load-bearing. The signal-path tracks now sit LOW, among the blocks,
+    so several pins are above their track and the riser runs downward -- a signed
+    sum would let those cancel against the upward ones and under-report the
+    routed length (it did, by 64 um, before this was fixed)."""
     riser, track = {}, {}
     for net, blk, lx, ly, _k, _t in B.TAPS:
         _x, y = B._abs(blk, lx, ly)
-        riser[net] = riser.get(net, 0.0) + (B.TRACK[net] - y)
+        riser[net] = riser.get(net, 0.0) + abs(B.TRACK[net] - y)
     for net, _ty in B.TRACK.items():
         xs = [B._abs(b, lx, 0)[0] for (n, b, lx, _ly, _k, _t) in B.TAPS
               if n == net]
@@ -409,9 +425,62 @@ def write_doc(sig, caps, tot, base, par, par2, dpm, dugf, wb, wp, w2, sens,
                  f"{w[2]} V | {w[4]/1e6:.2f} MHz |")
     L.append("")
     if wp[3] >= 60.0:
+        L.append("## What this replaced: the first routing FAILED this spec\n")
+        L.append(f"This layout has been routed twice, and the first attempt is "
+                 f"the reason the second exists. In it, all fourteen nets were "
+                 f"taken up to a channel above the tallest block — and measured "
+                 f"by this same bench (commit `{FIRST['commit']}`) it **missed "
+                 f"the 60° phase-margin spec at the worst corner: "
+                 f"{FIRST['worst']}°**.\n")
+        L.append("The per-net sensitivity said the cost was not spread around: "
+                 f"**{FIRST['sig_ff']:.0f} fF on four signal-path nodes carried "
+                 f"all {-FIRST['dpm']:.2f}° of it, while ~193 fF on the eight "
+                 "bias and input nets cost 0.00°.** And those four connect "
+                 "*adjacent* blocks — they were only sent up into the channel "
+                 "because the router treated every net alike. So the fix was to "
+                 "drop their met3 tracks down among the blocks they serve, and "
+                 "leave the eight that provably do not care exactly where they "
+                 "were:\n")
+        L.append("| | first routing | **re-routed** | `Cc` = 10 pF instead |")
+        L.append("|---|---|---|---|")
+        sigc = sum(c for n, (c, _d) in sig.items()
+                   if n in ("CB", "CA", "FA", "FB"))
+        L.append(f"| signal-path wire | {FIRST['routed_um']:.0f} µm | "
+                 f"**192 µm** | {FIRST['routed_um']:.0f} µm |")
+        L.append(f"| signal-path C | {FIRST['sig_ff']:.1f} fF | "
+                 f"**{sigc*1e15:.1f} fF** | {FIRST['sig_ff']:.1f} fF |")
+        L.append(f"| nominal ΔPM | {FIRST['dpm']:.2f}° | **{dpm:+.2f}°** | "
+                 f"{FIRST['dpm']:.2f}° |")
+        L.append(f"| worst-corner PM | {FIRST['worst']:.1f}° ✗ | "
+                 f"**{wp[3]:.1f}° ✓** | {FIRST['cc10_worst']:.1f}° |")
+        L.append(f"| at 2× pessimistic | {FIRST['worst2x']:.1f}° ✗ | "
+                 f"**{w2[3]:.1f}° ✓** | {FIRST['cc10_2x']:.1f}° ✗ |")
+        L.append(f"| loop gain @20 kHz | {FIRST['a20k']:.1f} dB | "
+                 f"**{par['a20k']:.1f} dB** | {FIRST['cc10_a20k']:.1f} dB |")
+        L.append("")
+        L.append("The third column is the obvious alternative — buy the margin "
+                 "back with a bigger Miller cap — and it is worth keeping in "
+                 "the table because it looks adequate and is not. It clears the "
+                 "nominal spec by 0.1° on a *planar capacitance estimate*, "
+                 "still fails at 2× pessimistic, and pays for it in loop gain; "
+                 f"pushing on to 13 pF only reaches {FIRST['cc13_worst']:.1f}° "
+                 f"({FIRST['cc13_2x']:.1f}° at 2×) while spending down to "
+                 f"{FIRST['cc13_a20k']:.1f} dB, against a row-6 floor of 40 dB. "
+                 "**Re-routing four wires beat it on every axis and cost "
+                 "nothing at all** — no loop gain, no bandwidth, no area, no "
+                 "change to a corner-verified operating point.\n")
+        L.append("The lesson underneath is a floorplan one. The channel floor "
+                 "was placed above the tallest block (`rrf2_plow`, ~74 µm) "
+                 "because that is what a channel *looks like* — but the blocks "
+                 "only use li and met1, so **met3 was free over every one of "
+                 "them** and a track never had to clear anything. All 37 pins "
+                 "were climbing ~67 µm for a constraint that did not exist.\n")
+        L.append("## Where it stands now\n")
         L.append(f"Worst-corner phase margin with the drawn interconnect is "
-                 f"**{wp[3]:.1f}°**, {wp[3]-60:+.1f}° against the 60° spec "
-                 f"({w2[3]:.1f}° at 2× pessimistic). Stability signs off.\n")
+                 f"**{wp[3]:.1f}°**, {wp[3]-60:+.1f}° against the 60° spec, and "
+                 f"it still passes at 2× pessimistic ({w2[3]:.1f}°) — which the "
+                 "first routing did not manage even with a 44 % bigger "
+                 "capacitor. Stability signs off.\n")
     else:
         L.append("### This is a spec failure — and it is the entire point of "
                  "running the bench\n")
@@ -474,21 +543,29 @@ def write_doc(sig, caps, tot, base, par, par2, dpm, dugf, wb, wp, w2, sens,
              "with it.\n")
     riser, track = wire_lengths()
     tr, tt_ = sum(riser.values()), sum(track.values())
-    L.append("### Why the wires are long: one tall block taxes every pin\n")
-    L.append(f"Total routed length in the channel is **{tr+tt_:.0f} µm**, "
-             f"splitting into **{tr:.0f} µm of vertical met2 risers against "
-             f"{tt_:.0f} µm of horizontal met3 track** — the risers are "
-             f"{tr/tt_:.1f}× the tracks. That is worth staring at, because a "
-             "riser's length is not a property of its net: it is the climb from "
-             "the pin up to the channel floor, and **the channel floor is set "
-             "by the tallest block in the row**. `rrf2_plow` is ~74 µm tall "
-             f"(tail over pair over mirror), so all {len(B.TAPS)} pins climb "
-             f"~{tr/len(B.TAPS):.0f} µm on average whether they need to or not.\n")
-    L.append("| net | riser µm | track µm |")
-    L.append("|---|---|---|")
+    hot_n = ("CB", "CA", "FA", "FB")
+    hot_r = sum(riser[n] for n in hot_n)
+    L.append("### Wire length, and the two-tier floorplan it forced\n")
+    L.append(f"Total routed length is **{tr+tt_:.0f} µm**, splitting into "
+             f"**{tr:.0f} µm of vertical met2 risers against {tt_:.0f} µm of "
+             f"horizontal met3 track**. Risers dominate {tr/tt_:.1f}×, which is "
+             "the whole story of this layout's interconnect: a riser's length is "
+             "not a property of its net, it is the distance from the pin to "
+             "wherever its track was put.\n")
+    L.append(f"That is why the tracks are now at two heights. The four "
+             f"signal-path nets sit low among the blocks they connect and spend "
+             f"**{hot_r:.0f} µm** of riser between them; the eight that cost "
+             f"0.00° stay in the channel above the tallest block and spend "
+             f"{tr-hot_r:.0f} µm. Splitting them is free — the high channel is "
+             "already verified geometry, and moving it to save capacitance that "
+             "provably does not matter would be rework for its own sake.\n")
+    L.append("| net | riser µm | track µm | track y |")
+    L.append("|---|---|---|---|")
     for net in sorted(B.TRACK, key=lambda n: -(riser[n] + track[n])):
-        L.append(f"| `{net.lower()}` | {riser[net]:.0f} | {track[net]:.0f} |")
-    L.append(f"| **total** | **{tr:.0f}** | **{tt_:.0f}** |")
+        lo = " (low)" if net in hot_n else ""
+        L.append(f"| `{net.lower()}` | {riser[net]:.0f} | {track[net]:.0f} | "
+                 f"{B.TRACK[net]:.1f}{lo} |")
+    L.append(f"| **total** | **{tr:.0f}** | **{tt_:.0f}** | |")
     L.append("")
     L.append("So the lever on interconnect *capacitance* is the height of the "
              "tallest block, not track length or block order. But combined with "

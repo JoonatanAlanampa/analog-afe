@@ -31,7 +31,7 @@ disturb.
 | 5 | Open-loop gain A_DC | ≥ 60 dB | ≥ 0.1 % gain error unity-gain, and headroom for #6 |
 | 6 | Loop gain at 20 kHz | ≥ 40 dB | distortion is suppressed by loop gain; sets #7 |
 | 7 | UGF | ≥ 2 MHz | 40 dB of loop gain left at 20 kHz on a −20 dB/dec roll-off |
-| 8 | Phase margin | ≥ 60° | no peaking into a capacitive cable load. **`miller_ota` PASSES** (worst corner 75.6°, and 80.9° nominal with its extracted interconnect). **`miller_rrf2` MISSES POST-LAYOUT: 59.7° worst corner** (tt/+25 °C/**1.98 V**) once the drawn interconnect is included — 62.8° schematic, and its own layout costs 3.1°. Fix identified and priced, not applied: `cb`/`ca`/`fa`/`fb` carry the whole cost and are routed through the channel unnecessarily (`docs/parasitics-rrf2.md`) |
+| 8 | Phase margin | ≥ 60° | no peaking into a capacitive cable load. **`miller_ota` PASSES** (worst corner 75.6°, 80.9° nominal with its extracted interconnect). **`miller_rrf2` PASSES post-layout: 61.6° worst corner** (tt/+25 °C/**1.98 V**, the high-supply corner), and still 60.5° at 2× pessimistic. It did **not** at first: the original routing measured **59.7°**, and the four signal-path nets (`cb`/`ca`/`fa`/`fb`) were re-routed low — 750 → 192 µm — which recovered 1.9° at zero cost in loop gain. A bigger `Cc` was the obvious alternative and was rejected on the measurement (`docs/parasitics-rrf2.md`) |
 | 9 | Slew rate | ≥ 0.1 V/µs | 1 V pp at 20 kHz needs 2π·20k·0.5 = 0.063 V/µs; ~60 % margin |
 | 10 | PSRR at 1 kHz | ≥ 40 dB | it shares a die with a CPU, a QSPI controller and video timing |
 | 11 | Quiescent current | ≤ 200 µA | budget, not a derivation — revisit when the DAC's is known |

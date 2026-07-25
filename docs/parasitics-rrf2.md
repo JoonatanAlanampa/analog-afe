@@ -14,19 +14,19 @@ The `miller_ota` bench hand-picked a seed point per net per layer. That does not
 
 | node | parasitic C | by layer |
 |---|---|---|
-| `cb` | 46.97 fF | li 3.8fF, m1 0.7fF, m2 35.7fF, m3 6.8fF |
 | `vb` | 42.54 fF | li 3.0fF, m2 26.1fF, m3 13.4fF |
 | `pc` | 34.32 fF | li 0.5fF, m1 0.8fF, m2 26.5fF, m3 6.6fF |
 | `vbp` | 31.91 fF | li 0.8fF, m1 0.5fF, m2 19.4fF, m3 11.2fF |
 | `pb` | 31.81 fF | li 1.5fF, m1 1.1fF, m2 21.6fF, m3 7.7fF |
-| `fb` | 20.37 fF | li 5.7fF, m2 12.4fF, m3 2.2fF |
 | `vinp` | 19.67 fF | li 0.5fF, m2 13.4fF, m3 5.8fF |
 | `vinn` | 19.35 fF | li 0.5fF, m2 13.0fF, m3 5.9fF |
-| `ca` | 19.32 fF | m1 0.7fF, m2 16.4fF, m3 2.3fF |
-| `fa` | 16.82 fF | m1 2.8fF, m2 12.1fF, m3 1.8fF |
+| `cb` | 17.34 fF | li 3.8fF, m1 0.7fF, m2 6.1fF, m3 6.8fF |
 | `vout` | 13.06 fF | m2 0.1fF, m3 1.8fF, m4 11.2fF |
+| `fb` | 9.83 fF | li 5.7fF, m2 1.9fF, m3 2.2fF |
+| `fa` | 6.26 fF | m1 2.8fF, m2 1.6fF, m3 1.8fF |
+| `ca` | 6.12 fF | m1 0.7fF, m2 3.2fF, m3 2.3fF |
 | `nz` | 0.45 fF | li 0.0fF, m2 0.4fF |
-| **total loaded** | **296.59 fF** | 3.30 % of the 9 pF `Cc` |
+| **total loaded** | **232.67 fF** | 2.59 % of the 9 pF `Cc` |
 
 The rails are extracted but **not** loaded (`vdd` 52 fF, `vss` 62 fF): their wire capacitance goes to the substrate, i.e. to `vss` — a no-op for `vss` itself, and supply decoupling for `vdd`, which helps rather than threatens.
 
@@ -35,28 +35,43 @@ The rails are extracted but **not** loaded (`vdd` 52 fF, `vss` 62 fF): their wir
 | case | DC gain | UGF | phase margin | gain margin | A@20 kHz | THD@1 kHz/1 Vpp |
 |---|---|---|---|---|---|---|
 | schematic (no parasitics) | 73.0 dB | 13.94 MHz | 73.3° | 15.3 dB | 46.0 dB | 0.057 % |
-| + extracted parasitics | 73.0 dB | 13.83 MHz | 70.1° | 14.4 dB | 46.0 dB | 0.057 % |
-| + 2× pessimistic | 73.0 dB | 13.69 MHz | 67.2° | 13.6 dB | 46.0 dB | 0.057 % |
+| + extracted parasitics | 73.0 dB | 13.90 MHz | 72.1° | 14.9 dB | 46.0 dB | 0.057 % |
+| + 2× pessimistic | 73.0 dB | 13.86 MHz | 70.9° | 14.5 dB | 46.0 dB | 0.057 % |
 
-**Result:** the extracted interconnect moves phase margin -3.13° and UGF -0.8 %, and at 2× pessimistic phase margin is 67.2°. THD at the 1 kHz spec point is 0.057 % with parasitics against 0.057 % without — distortion is set by the low-frequency loop gain, which megahertz wire poles do not touch.
+**Result:** the extracted interconnect moves phase margin -1.19° and UGF -0.3 %, and at 2× pessimistic phase margin is 70.9°. THD at the 1 kHz spec point is 0.057 % with parasitics against 0.057 % without — distortion is set by the low-frequency loop gain, which megahertz wire poles do not touch.
 
 ## The number that actually decides it — worst corner
 
-A -3.13° shift is noise at the nominal corner and would be nothing worth writing down. It is not nothing here, because `miller_rrf2`'s **worst-corner** phase margin is only a few degrees above spec to begin with — so the nominal number alone would be a claim rather than a measurement. Re-run over the same PVT grid the design was signed off on (5 processes × 3 temperatures, plus the supply extremes):
+A -1.19° shift is noise at the nominal corner and would be nothing worth writing down. It is not nothing here, because `miller_rrf2`'s **worst-corner** phase margin is only a few degrees above spec to begin with — so the nominal number alone would be a claim rather than a measurement. Re-run over the same PVT grid the design was signed off on (5 processes × 3 temperatures, plus the supply extremes):
 
 | case | worst-corner PM | at | UGF there |
 |---|---|---|---|
 | schematic (no parasitics) | **62.8°** | tt / +25 °C / 1.98 V | 18.64 MHz |
-| + extracted parasitics | **59.7°** | tt / +25 °C / 1.98 V | 18.32 MHz |
-| + 2× pessimistic | **56.9°** | tt / +25 °C / 1.98 V | 17.99 MHz |
+| + extracted parasitics | **61.6°** | tt / +25 °C / 1.98 V | 18.53 MHz |
+| + 2× pessimistic | **60.5°** | tt / +25 °C / 1.98 V | 18.41 MHz |
 
-### This is a spec failure — and it is the entire point of running the bench
+## What this replaced: the first routing FAILED this spec
 
-Worst-corner phase margin with the drawn interconnect is **59.7°** at tt / +25 °C / 1.98 V — **0.3° UNDER the 60° spec** (spec row 8, which `tb/run.py` asserts). At 2× pessimistic it is 56.9°.
+This layout has been routed twice, and the first attempt is the reason the second exists. In it, all fourteen nets were taken up to a channel above the tallest block — and measured by this same bench (commit `788b5d6`) it **missed the 60° phase-margin spec at the worst corner: 59.7°**.
 
-The schematic design had 62.8° at that corner, i.e. 2.8° of margin, and the interconnect eats 3.1° of it. **`miller_rrf2` was signed off with less phase-margin headroom than its own layout costs.** Nothing about the schematic work was wrong — the parasitic pass is precisely the step meant to catch this, and it did. For contrast `miller_ota` lost 0.13° to its interconnect against ~15° of margin; it could not have failed this way, which is why its parasitic pass read as a formality and this one does not.
+The per-net sensitivity said the cost was not spread around: **104 fF on four signal-path nodes carried all 3.13° of it, while ~193 fF on the eight bias and input nets cost 0.00°.** And those four connect *adjacent* blocks — they were only sent up into the channel because the router treated every net alike. So the fix was to drop their met3 tracks down among the blocks they serve, and leave the eight that provably do not care exactly where they were:
 
-Note *which* corner fails: the **high-supply** one (+10 %), not a temperature extreme. Phase margin is worst there because more supply means more tail current, more gm and a higher UGF — the loop runs out of margin at the top of the supply range, while THD runs out at the temperature extremes. Two different corners bound this amplifier, and a sweep that only walked temperature would have missed this one.
+| | first routing | **re-routed** | `Cc` = 10 pF instead |
+|---|---|---|---|
+| signal-path wire | 750 µm | **192 µm** | 750 µm |
+| signal-path C | 103.5 fF | **39.5 fF** | 103.5 fF |
+| nominal ΔPM | -3.13° | **-1.19°** | -3.13° |
+| worst-corner PM | 59.7° ✗ | **61.6° ✓** | 60.1° |
+| at 2× pessimistic | 56.9° ✗ | **60.5° ✓** | 57.2° ✗ |
+| loop gain @20 kHz | 46.0 dB | **46.0 dB** | 45.1 dB |
+
+The third column is the obvious alternative — buy the margin back with a bigger Miller cap — and it is worth keeping in the table because it looks adequate and is not. It clears the nominal spec by 0.1° on a *planar capacitance estimate*, still fails at 2× pessimistic, and pays for it in loop gain; pushing on to 13 pF only reaches 60.7° (57.8° at 2×) while spending down to 42.9 dB, against a row-6 floor of 40 dB. **Re-routing four wires beat it on every axis and cost nothing at all** — no loop gain, no bandwidth, no area, no change to a corner-verified operating point.
+
+The lesson underneath is a floorplan one. The channel floor was placed above the tallest block (`rrf2_plow`, ~74 µm) because that is what a channel *looks like* — but the blocks only use li and met1, so **met3 was free over every one of them** and a track never had to clear anything. All 37 pins were climbing ~67 µm for a constraint that did not exist.
+
+## Where it stands now
+
+Worst-corner phase margin with the drawn interconnect is **61.6°**, +1.6° against the 60° spec, and it still passes at 2× pessimistic (60.5°) — which the first routing did not manage even with a 44 % bigger capacitor. Stability signs off.
 
 ### Which wire costs the margin — and a prediction that was wrong
 
@@ -64,10 +79,10 @@ The aggregate number says nothing about mechanism, so each net was also loaded o
 
 | node | parasitic C | ΔPM alone |
 |---|---|---|
-| `cb` | 46.97 fF | -1.95° |
-| `ca` | 19.32 fF | -0.54° |
-| `fb` | 20.37 fF | -0.40° |
-| `fa` | 16.82 fF | -0.26° |
+| `cb` | 17.34 fF | -0.73° |
+| `fb` | 9.83 fF | -0.19° |
+| `ca` | 6.12 fF | -0.18° |
+| `fa` | 6.26 fF | -0.10° |
 | `nz` | 0.45 fF | -0.00° |
 | `pc` | 34.32 fF | -0.00° |
 | `vinp` | 19.67 fF | +0.00° |
@@ -77,51 +92,31 @@ The aggregate number says nothing about mechanism, so each net was also loaded o
 | `vb` | 42.54 fF | +0.00° |
 | `vout` | 13.06 fF | +0.01° |
 
-The split is stark: **103 fF on the four signal-path nodes costs -3.15°, while 193 fF on the eight bias and input nets costs nothing at all.** `vb` carries 42.5 fF and costs 0.00°; `cb` carries 47.0 fF and costs 1.95°. **Phase-margin cost tracks whether a node is in the signal path, not how much capacitance it carries** — the bias nets are diode-connected, so they sit at 1/gm and tens of fF do nothing there. (The single-net deltas also sum to the aggregate, so the loading superposes linearly — no interaction to chase.)
+The split is stark: **40 fF on the four signal-path nodes costs -1.20°, while 193 fF on the eight bias and input nets costs nothing at all.** `vb` carries 42.5 fF and costs 0.00°; `cb` carries 47.0 fF and costs 1.95°. **Phase-margin cost tracks whether a node is in the signal path, not how much capacitance it carries** — the bias nets are diode-connected, so they sit at 1/gm and tens of fF do nothing there. (The single-net deltas also sum to the aggregate, so the loading superposes linearly — no interaction to chase.)
 
 **Why the prediction failed, which is the transferable part:** `Rz` is in *series* with `Cc`. Above 1/(2π·Rz·Cc) ≈ **1.8 MHz** the Miller branch stops being a short and sits at its resistive 10 kΩ floor — so at the 18 MHz worst-corner UGF the compensation capacitor does **not** shunt `cb`, and a parasitic there is fully exposed. That is the same property (`design-notes.md` §7) that made `Rz` the phase-margin lever in the first place, now showing up as a *liability*. Do not reason about which node a compensation cap 'protects' without checking what is in series with it.
 
-### Why the wires are long: one tall block taxes every pin
+### Wire length, and the two-tier floorplan it forced
 
-Total routed length in the channel is **3031 µm**, splitting into **2469 µm of vertical met2 risers against 561 µm of horizontal met3 track** — the risers are 4.4× the tracks. That is worth staring at, because a riser's length is not a property of its net: it is the climb from the pin up to the channel floor, and **the channel floor is set by the tallest block in the row**. `rrf2_plow` is ~74 µm tall (tail over pair over mirror), so all 37 pins climb ~67 µm on average whether they need to or not.
+Total routed length is **2473 µm**, splitting into **1912 µm of vertical met2 risers against 561 µm of horizontal met3 track**. Risers dominate 3.4×, which is the whole story of this layout's interconnect: a riser's length is not a property of its net, it is the distance from the pin to wherever its track was put.
 
-| net | riser µm | track µm |
-|---|---|---|
-| `vss` | 397 | 86 |
-| `vdd` | 277 | 69 |
-| `vb` | 245 | 88 |
-| `cb` | 287 | 40 |
-| `pc` | 248 | 42 |
-| `vbp` | 182 | 73 |
-| `pb` | 202 | 50 |
-| `ca` | 154 | 14 |
-| `vinp` | 126 | 37 |
-| `vinn` | 121 | 38 |
-| `fb` | 116 | 14 |
-| `fa` | 114 | 11 |
-| **total** | **2469** | **561** |
+That is why the tracks are now at two heights. The four signal-path nets sit low among the blocks they connect and spend **114 µm** of riser between them; the eight that cost 0.00° stay in the channel above the tallest block and spend 1798 µm. Splitting them is free — the high channel is already verified geometry, and moving it to save capacitance that provably does not matter would be rework for its own sake.
+
+| net | riser µm | track µm | track y |
+|---|---|---|---|
+| `vss` | 397 | 86 | 80.0 |
+| `vdd` | 277 | 69 | 81.5 |
+| `vb` | 245 | 88 | 83.0 |
+| `pc` | 248 | 42 | 86.0 |
+| `vbp` | 182 | 73 | 87.5 |
+| `pb` | 202 | 50 | 84.5 |
+| `vinp` | 126 | 37 | 96.5 |
+| `vinn` | 121 | 38 | 95.0 |
+| `cb` | 55 | 40 | 33.0 (low) |
+| `ca` | 29 | 14 | 16.0 (low) |
+| `fb` | 17 | 14 | 34.5 (low) |
+| `fa` | 14 | 11 | 31.5 (low) |
+| **total** | **1912** | **561** | |
 
 So the lever on interconnect *capacitance* is the height of the tallest block, not track length or block order. But combined with the sensitivity above, the lever on **phase margin** is much narrower and much cheaper than that: only `cb`, `ca`, `fa` and `fb` matter, and all four connect blocks that are *adjacent in the row*. They never needed to climb to the channel at all — the router simply treated all fourteen nets alike. Routing those four short and direct between neighbours, and leaving the channel to the bias nets that provably do not care, is a targeted fix that touches four wires instead of the floorplan.
-
-## Pricing the fix
-
-`Cc` is the natural lever: it sets the dominant pole, it is the parameter the margin-tune already traded against 20 kHz loop gain, and in layout it is only a bigger MIM plate — no re-routing, no re-verification of the channel. Swept at the failing corner, with the extracted parasitics in place:
-
-| Cc | worst-corner PM | worst-corner PM (2×) | nominal PM | nominal A@20 kHz |
-|---|---|---|---|---|
-| 9 pF | **59.7°** | 56.9° | 70.1° | 46.0 dB |
-| 10 pF | **60.1°** ✅ | 57.2° | 70.7° | 45.1 dB |
-| 11 pF | **60.3°** ✅ | 57.5° | 71.2° | 44.3 dB |
-| 12 pF | **60.5°** ✅ | 57.7° | 71.6° | 43.6 dB |
-| 13 pF | **60.7°** ✅ | 57.8° | 71.9° | 42.9 dB |
-
-At the smallest `Cc` that clears the spec (**10 pF**), distortion is re-checked at the THD-worst corner (ff / +85 °C — the corner that bounds THD, not the one that bounds PM): **0.092 %** against 0.092 % at 9 pF, both under the 0.1 % target — so the trade is 20 kHz loop gain for phase margin, and it leaves the 1 kHz distortion the whole topology exists for untouched.
-
-That trade has a floor of its own, which bounds how far the lever can be pushed: **spec row 6 wants ≥ 40 dB of loop gain at 20 kHz**, and the sweep is already down to 42.9 dB by 13 pF. So `Cc` cannot run much past 13 pF without trading one spec row for another.
-
-**But read the table before reaching for it: `Cc` is a weak lever here.** Going from 9 pF to 13 pF — a 44 % bigger MIM plate — buys only 1.0° at the worst corner while giving up 3.2 dB of 20 kHz loop gain. 10 pF technically clears the spec at 60.1°, but that is 0.1° of margin on a planar capacitance estimate, which is not a fix — it is a rounding error. At 2× pessimistic no value in the sweep reaches 60°.
-
-**The better lever is the layout, and the sensitivity says exactly where.** `cb` alone costs 1.95°; halving its wire recovers roughly what 4 pF of extra `Cc` buys, at no cost in loop gain, bandwidth or area. `cb`, `ca`, `fa` and `fb` connect adjacent blocks and were sent up into the channel only because the router treated every net the same.
-
-**Nothing applied here.** Changing `Cc` moves a corner-verified operating point and means redrawing `cap_cc9`; re-routing four nets means re-verifying the layout. Both are design decisions, and this bench's job was to measure. The numbers are on the table for whoever makes the call.
 
