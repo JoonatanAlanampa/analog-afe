@@ -299,15 +299,117 @@ Console roles (why each block exists):
         alternative side by side (`FIRST` constants pin the pre-fix numbers to
         commit 788b5d6); spec.md row 8 now reads PASSES for rrf2.
 
-## Phase 3 — comparator
+## Phase 3 — comparator — DONE 2026-08-02
 
-- [ ] Pre-amp + latch, offset and kickback benches, metastability window
+Spec first (`docs/spec-comparator.md` — `docs/spec.md` was entirely the audio
+buffer), then both candidates benched: `spice/strongarm.sp` (bare latch) and
+`spice/comparator.sp` (a pre-amp in front of *that same latch file*). Results
+and method in `docs/comparator.md`; bench `tb/comparator.py`.
 
-## Phase 4 — SAR ADC
+- [x] **The pre-amp earns its current — on KICKBACK, not on offset.** The bare
+      latch pushes **49.3 fC** into the 1 pF top plate and keeps it (peak and
+      residual are the same number, because a charge-holding node has nowhere
+      to put it) against a **3.5 fC** budget — over by 14×. The pre-amp, with
+      the same latch behind it, gives **1.04 fC peak and ~0 residual**, a 47×
+      reduction, because it is continuously biased and so presents no
+      evaluation transient to its input at all.
+      ⚠ **THAT PAIR OF NUMBERS IS MEASURED AT THRESHOLD, WHERE KICKBACK IS
+      SMALLEST.** Phase 4 sent the measurement back and the sweep changed the
+      margin: over the full input range the bare latch reaches **−136.7 fC**
+      (39× over) and the pre-amp **−8.48 fC** (2.4× over, one-sided — it stays
+      at ~0 for positive overdrive). The pre-amp still wins by 16× at each
+      candidate's worst point, but **neither holds the budget everywhere**, and
+      "comfortably inside 3.5 fC" was an artefact of the operating point chosen.
+      MECHANISM, and it is the same decision twice: the input pair is long and
+      wide *because* offset is mismatch and mismatch scales as 1/√(WL) — and
+      that same large gate is what couples the transient in. **The sizing that
+      buys matching buys kickback.**
+- [x] **Offset**, by decision probability rather than by threshold search: each
+      instance in a netlist draws its own mismatch, so K copies in one run are K
+      devices, and sweeping the overdrive across runs measures P(decide +),
+      whose probit fit *is* the offset distribution. 504 device samples per
+      candidate instead of the ~20 a bisection loop would have afforded.
+      RESULT, and it contradicts the reason usually given for a pre-amp:
+      σ = **3.07 mV** bare vs **6.86 mV** with the pre-amp. It divides the
+      latch's offset by a gain of only a few and then adds its own pair *and*
+      its small diode loads. Against the 1 LSB (7.03 mV) budget that leaves
+      2 % of margin — **the clearest open item this phase leaves.**
+- [x] **Metastability is a non-issue by ~10³.** Delay grows logarithmically as
+      it must; the slowest decision measured is **2.6 ns at 1 µV** of overdrive
+      against a 2 µs trial. Quoted over the clean decades only — below ~0.1 mV
+      the curve flattens because the solver's tolerance, not the latch, breaks
+      the tie there.
+- [x] **Both directions**, per design-notes §5 — and the 1.46× asymmetry the
+      bare latch shows is *the SAR's*, not the latch's: only one comparator
+      input moves in a charge-redistribution SAR, so ±100 mV is also two
+      different common modes and the tail is stronger at the higher one.
+- [x] **Common-mode range (spec row 11) passes over the whole rail**: sweeping
+      the top plate 0.05 → 1.70 V against the fixed reference, both candidates
+      decided correctly at 34/34 points. The classic scheme survives on 1.8 V
+      because the extreme common modes coincide with the largest differentials
+      — the uncomfortable trial is the one asking for the least resolution.
+- [x] A correction to `topology-review.md` that the drafting turned up and the
+      bench then relied on: the banked 5T OTA **cannot** be the pre-amp. It is
+      single-ended by construction and a StrongARM needs a differential drive;
+      the pre-amp uses diode-connected PMOS loads instead. What was really
+      banked was the input pair, not the OTA.
 
-- [ ] Charge-redistribution DAC (capacitor matching is the whole game),
-      SAR logic in our own standard cells, ~8–10 bit at audio rates
-- [ ] Static (INL/DNL) and dynamic (SNDR/ENOB) benches
+## Phase 4 — SAR ADC — DONE 2026-08-02
+
+`spice/cdac8.sp` + the phase-3 comparator + SAR sequencing in XSPICE digital
+primitives, so a whole conversion (sample, eight trials, read-out) is ONE
+transient. Results in `docs/sar.md`; bench `tb/sar.py`.
+
+- [x] **It converts — and after the race below was fixed, it converts
+      EXACTLY: all 256 codes correct, 0 failed conversions, gain error 0.00 %,
+      INL 0.00 LSB over the sampled curve, SNDR 50.26 dB → ENOB 8.06 bits.**
+      (Read the ENOB as "no distortion measurable above quantization" — a
+      64-point coherent record makes quantization error deterministic rather
+      than white, which is why it lands just above the 49.9 dB ideal. The
+      transfer curve is the stronger claim.)
+- [x] **Phase 3's verdict reproduced from the other side**: same array, same
+      sequencing, comparator swapped — the bare latch returns code 139 for a
+      mid-scale input with the residue stuck at +70 mV (49.3 fC on 1.26 pF is
+      39 mV per trial), the pre-amp returns 128 with zero error.
+- [x] **Charge-redistribution DAC** from 256 unit cells of the PDK's own MIM
+      capacitor, so matching is a PDK number rather than an assumption.
+      Unit 4.9298 fF, array 1.262 pF.
+- [x] **Static (INL/DNL) and dynamic (SNDR/ENOB) benches** — plus the
+      distinction that makes them mean different things: a DAC sweep walks the
+      code and lets the top plate visit the whole rail, while a *conversion*
+      always ends at V<sub>cm</sub>, so a nonlinear-parasitic bow largely
+      cancels in the converter and capacitor mismatch does not.
+- [ ] **SAR logic in our own standard cells** — deliberately NOT done here.
+      Modelling the logic as ideal digital is what makes INL/DNL/ENOB depend on
+      the array and the comparator alone; mapping the same sequencing onto
+      `stdcells` is a separate, checkable step and the timing it must meet is
+      printed by the bench.
+
+### Three findings from phase 4 that outlive it
+
+- **A 200 ps race cost 21 LSB, and only an end-to-end simulation could see it.**
+  The pointer flop's clk_delay plus the bridge's rise time put the MSB control
+  ~0.2 ns behind the clock edge, so releasing the bottom plates on that same
+  edge left the array at **code 0** for 200 ps — and at code 0 the top plate
+  sits at V<sub>cm</sub> − V<sub>in</sub>, which is **negative** for any input
+  above mid-rail. That forward-biases the sampling switch's junction to the
+  substrate and dumps sampled charge, permanently. Symptom: codes 0-220 exact,
+  then a one-sided error growing to −10 LSB. Fix: release the bottom plates
+  *after* the code is established. General form — in a charge-redistribution
+  converter the array must never sit at a code that drives the top plate outside
+  the rails, not even for one gate delay, because the node is floating and the
+  rails are diodes.
+
+- **sky130 ships the MIM capacitor twice and the two disagree about matching by
+  6×** (0.47 %·µm in `libs.tech/combined`, which this repo loads, vs 2.8 %·µm
+  via `libs.tech/ngspice`), about the multiplicity parameter's name, and about
+  whether there is a perimeter term. Worse, `.include`-ing the other definition
+  is silently *ignored* — ngspice keeps the first and prints only a warning, so
+  the netlist can appear to say one thing and simulate another.
+- **A binary array must be built from identical unit cells, and it is worth
+  9.5 % on the MSB.** The model biases each edge by 0.15 µm, which does not
+  scale with the drawing: 128 unit cells = 631.0 fF, one 128×-long capacitor =
+  571.2 fF. That is ~24 LSB of DNL, from a choice that looks like bookkeeping.
 
 ## Phase 5 — TT analog slot
 

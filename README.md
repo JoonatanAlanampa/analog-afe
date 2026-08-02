@@ -388,3 +388,74 @@ fails at 2× pessimistic, and pays in loop gain — and pushing to 13 pF runs in
 the ≥ 40 dB floor of spec row 6. **Re-routing four wires beat it on every axis
 and cost nothing** — no loop gain, no area, no change to a corner-verified
 operating point. `layout/verify.py` and the extraction check stay green.
+
+## Phases 3 and 4 — the comparator, and the converter around it
+
+The chain is `op-amp → comparator → SAR ADC`, and the second and third links now
+exist and run: `docs/comparator.md`, `docs/sar.md`, with the comparator's own
+spec traced to its job in `docs/spec-comparator.md` (`docs/spec.md` is entirely
+the audio buffer). A whole 8-bit conversion — sample, eight bit trials,
+code read-out — simulates in **one transient**.
+
+**The phase-3 question was "does the pre-amp earn its current?", and the useful
+part of the answer is that it earns it for the wrong reason.** The netlist's own
+header justifies the pre-amp on offset first and isolation second. Measured, the
+offset argument is backwards — the pre-amp roughly *doubles* the offset spread
+(σ 3.07 → 6.43 mV), because it divides the latch's offset by a gain of only a
+few while adding its own input pair and its small diode loads. What it actually
+buys is **kickback**:
+
+| into a 1 pF top plate | bare StrongARM | pre-amp + the same latch | budget |
+|---|---|---|---|
+| peak | 49.34 fC | **1.04 fC** | < 3.5 fC |
+| residual after the decision | −49.34 fC | **−0.005 fC** | < 3.5 fC |
+
+The bare latch is over budget by 14× and *keeps* the charge — peak and residual
+are the same number, because a charge-holding node has nowhere to put it. The
+mechanism is the same design decision twice: the input pair is long and wide
+because offset is mismatch and mismatch scales as 1/√(WL), and that same large
+gate is what couples the evaluation transient into the input. **The sizing that
+buys matching buys kickback.** A continuously-biased pre-amp breaks the link
+because its input never sees a switching transient at all.
+
+**Phase 4 then reproduced that verdict from the other side, without being asked
+to.** The first end-to-end conversion — same array, same sequencing, comparator
+= the bare latch — returned code 139 for a mid-scale input whose ideal code is
+128, with the residue stuck near +70 mV instead of converging. 49.3 fC on the
+array's 1.26 pF is 39 mV per trial. Swapping in the pre-amp and changing nothing
+else gave code 128, error 0, residue halving cleanly every trial.
+
+**The converter now returns all 256 codes exactly** — 0 failed conversions, gain
+error 0.00 %, INL 0.00 LSB over the sampled transfer curve, SNDR 50.26 dB
+(ENOB 8.06 bits). Getting there needed one more bug, and it is the best one:
+
+> The transfer curve was bit-exact for codes 0–220 and then fell apart, growing
+> to −10 LSB at full scale. Four measurements to find it, three of which ruled
+> things *out* — it was time-independent across an 8× change in conversion
+> period (so capacitive, not leakage), it got **worse** with an ideal
+> zero-capacitance comparator (so not the comparator), and shrinking the
+> sampling switch only halved it. The cause was a **200 ps race**: the pointer
+> flop's delay plus the bridge's rise time put the MSB control just behind the
+> clock edge, so releasing the bottom plates on that same edge left the array at
+> **code 0** for 200 ps — and at code 0 the top plate sits at V_cm − V_in, which
+> is *negative* for any input above mid-rail. That forward-biases the sampling
+> switch's junction to the substrate and dumps sampled charge, permanently.
+> Releasing the bottom plates after the code is established fixes it completely.
+> **In a charge-redistribution converter the array must never sit at a code that
+> drives the top plate outside the rails, not even for one gate delay — the node
+> is floating and the rails are diodes.**
+
+Three things found along the way that outlive this leg (the race above is
+the first):
+
+- **sky130 ships the MIM capacitor twice, and the two models disagree about
+  matching by 6×** (0.47 %·µm in `libs.tech/combined`, which this repo loads,
+  against 2.8 %·µm via `libs.tech/ngspice`) — as well as about the multiplicity
+  parameter's name and whether there is a perimeter term. Worse, `.include`-ing
+  the other definition is silently *ignored*: ngspice keeps the first and prints
+  only a warning, so a netlist can appear to say one thing and simulate another.
+- **A binary array must be built from identical unit cells, and it is worth
+  9.5 % on the MSB.** The model biases each edge by 0.15 µm and that bias does
+  not scale with the drawing: 128 unit cells come to 631.0 fF, one 128×-long
+  capacitor to 571.2 fF. That is ~24 LSB of DNL, from a choice that looks like
+  bookkeeping.
