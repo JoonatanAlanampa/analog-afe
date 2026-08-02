@@ -379,11 +379,24 @@ transient. Results in `docs/sar.md`; bench `tb/sar.py`.
       code and lets the top plate visit the whole rail, while a *conversion*
       always ends at V<sub>cm</sub>, so a nonlinear-parasitic bow largely
       cancels in the converter and capacitor mismatch does not.
-- [ ] **SAR logic in our own standard cells** — deliberately NOT done here.
-      Modelling the logic as ideal digital is what makes INL/DNL/ENOB depend on
-      the array and the comparator alone; mapping the same sequencing onto
-      `stdcells` is a separate, checkable step and the timing it must meet is
-      printed by the bench.
+- [x] **SAR logic in our own standard cells — DONE** (`spice/sar_logic.sp`,
+      built from `spice/own_cells.sp`, vendored from `stdcells` with commit
+      provenance). **89 cells / 682 transistors: 27 INV_X1, 8 NAND2_X1,
+      35 NOR2_X1, 19 DFF_X1 — no foundry cells anywhere in it.** The converter
+      returns the same codes as with ideal logic (128 at mid-scale; 32/96/160/
+      224 across the range), with a residue trace indistinguishable from it.
+      The ideal-digital runs stay the default and stay the basis for the
+      256-code result, because that is what keeps INL/DNL/ENOB properties of
+      the array and the comparator rather than of a logic implementation.
+      TWO LIBRARY PROPERTIES SHAPED IT, and neither is a modelling choice:
+      **DFF_X1 has no reset** (dfxtp_1: D/CLK→Q), so every clear is synchronous
+      and `rst` must still be high AT a clock edge — which costs one clock
+      period, hence `samp0()`; and **NAND3/NOR3 are not in the library**, so
+      every function is composed from two-input gates. A third fell out of the
+      timing: the code registers are clocked by the master edge, which lands
+      after the comparator has reset and both its outputs are high again, so a
+      single shared decision flop (clocked by the capture strobe, while the
+      decision is still valid) replaces a gated clock per bit.
 
 ### Three findings from phase 4 that outlive it
 

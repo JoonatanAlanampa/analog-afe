@@ -227,6 +227,73 @@ to ~1 % across a 10× range of dwell — −0.4454 LSB at 100 ns, −0.4526 at 2
 so that one is real. Both settings are now defaults in `tb/sar.py`, with the
 convergence study recorded next to them.
 
+## The SAR logic, in the user's own standard cells
+
+The measurements above use ideal XSPICE digital for the sequencing, deliberately
+— that is what makes INL, DNL and ENOB properties of the array and the
+comparator rather than of a logic implementation. `spice/sar_logic.sp` closes
+PLAN phase 4's last item by replacing it with the real library.
+
+**89 cells, 682 transistors, no foundry cells anywhere in it:**
+
+| | INV_X1 | NAND2_X1 | NOR2_X1 | DFF_X1 | total |
+|---|---|---|---|---|---|
+| instances | 27 | 8 | 35 | 19 | **89** |
+| transistors | 54 | 32 | 140 | 456 | **682** |
+
+`spice/own_cells.sp` is the library, vendored with commit provenance from
+`stdcells` (regenerated from `flow/cells.py`, **not** copied from
+`stdcells/out/own.spice` — that build artifact is stale there and carries only
+8 of the 9 cells).
+
+### Two library properties shaped the design, and neither is a modelling choice
+
+- **DFF_X1 has no set and no reset.** It is the `dfxtp_1` topology, D/CLK → Q,
+  nothing else. So every register is cleared *synchronously*, by forcing its D
+  input low while `rst` is high and letting a clock edge land — which means
+  **`rst` must still be high AT a clock edge.** A reset pulse that ends before
+  the first edge clears nothing, and the converter starts from whatever the DC
+  solution picked. That costs one clock period: the own-cell path samples a
+  period later than the XSPICE path, which is why the schedule is derived from
+  `samp0()` rather than hardcoded.
+- **NAND3/NOR3 are not in the library** (dropped in v1 on measured PPA), so
+  every function is composed from two-input gates. `q(next) = (q OR (s AND
+  dec)) AND NOT rst` becomes NAND2 → INV → NOR2 → NOR2, and the bit's DAC
+  control `s OR q` becomes NOR2 → INV.
+
+One design decision came out of the timing rather than the gate list. The code
+registers are clocked by the master clock, whose edge lands at the *end* of a
+trial — by which time the comparator has been reset and **both** its outputs are
+high again, so sampling it there would latch "keep" every time. A single shared
+`dec` flop, clocked by the capture strobe while the decision is still valid,
+fixes it for the whole converter: one extra DFF instead of a gated clock per bit.
+
+### It converts, on the real cells
+
+| Vin | ideal code | own-cell code | |
+|---|---|---|---|
+| 0.9000 V | 128 | **128** | mid-scale |
+| 0.2250 / 0.6750 / 1.1250 / 1.5750 V | 32 / 96 / 160 / 224 | **32 / 96 / 160 / 224** | across the range |
+| 0.0316 / 0.8965 / 1.7473 / 1.7895 V | 4 / 127 / 248 / 254 | **4 / 127 / 248 / 254** | the extremes |
+
+Eight for eight. Codes 248 and 254 are worth pointing at: that is exactly the
+band the 200 ps race used to corrupt by −7 and −10 LSB, so it is also a
+regression test for the fix, run on different logic.
+
+The residue trace is indistinguishable from the ideal-logic run (420.04 mV vs
+420.05 mV at trial 1, 6.00 mV vs 6.01 mV at trial 7) — the sequencing is doing
+the same thing, in silicon-able gates.
+
+**Scope, stated plainly:** this is a spot check, not the 256-point curve. Each
+copy costs 682 extra transistors, an 8-copy run needs ~10 GB and a 4-copy run
+takes ten minutes, so a full own-cell sweep would run for hours. The 256-code
+result above stands on the XSPICE-logic runs; what the own-cell runs establish
+is that the real library reproduces them.
+
+*(Bench note: ngspice stores every vector at every timepoint by default, which
+is what asked for 10.7 GB. `save` fixes it — but only with **bare node names**;
+`save v(node)` parsed without complaint and saved everything anyway.)*
+
 ## What is open
 
 - **Offset spread, from phase 3.** σ = 6.86 mV against a 1 LSB (7.03 mV) budget

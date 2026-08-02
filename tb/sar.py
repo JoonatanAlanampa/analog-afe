@@ -1,18 +1,23 @@
 """SAR ADC bench -- phase 4. The whole converter, one conversion per transient.
 
-`spice/cdac8.sp` is the 8-bit charge-redistribution array; the comparator is
-whichever phase-3 candidate won (`spice/strongarm.sp` / `spice/comparator.sp`);
-and the SAR sequencing here is built from ngspice's XSPICE digital primitives.
+`spice/cdac8.sp` is the 8-bit charge-redistribution array and the comparator is
+whichever phase-3 candidate won (`spice/strongarm.sp` / `spice/comparator.sp`).
 
-WHY THE LOGIC IS XSPICE AND NOT OUR OWN CELLS. PLAN.md phase 4 wants the SAR
-logic in the `stdcells` library eventually. Modelling it as ideal digital here
-is not a shortcut around that -- it is what makes the measurement mean
-something: INL, DNL and ENOB then depend on the capacitor array and the
-comparator ALONE, so a linearity number cannot be quietly rescued (or spoiled)
-by the logic implementation. Mapping the same sequencing onto real cells is a
-separate, checkable step, and the timing it has to meet is printed here.
+TWO SEQUENCERS, AND THE DEFAULT IS THE IDEAL ONE ON PURPOSE.
+  LOGIC="xspice" (default) -- ideal XSPICE digital. This is what makes the
+      measurement mean something: INL, DNL and ENOB then depend on the
+      capacitor array and the comparator ALONE, so a linearity number cannot
+      be quietly rescued (or spoiled) by a logic implementation.
+  LOGIC="own"              -- `spice/sar_logic.sp`, the same sequencing built
+      from the user's OWN standard cells (`spice/own_cells.sp`): 89 cells,
+      682 transistors, INV_X1 / NAND2_X1 / NOR2_X1 / DFF_X1, no foundry cells.
+      It answers the different question -- does the converter still work when
+      the logic is the real library -- and it does, returning the same codes.
+      It costs ~10 minutes for four parallel conversions, which is why it is a
+      spot check rather than the basis for the 256-code result.
 
-THE SEQUENCE (one master clock, everything else derived):
+THE SEQUENCE (one master clock, everything else derived; period indices are
+for the XSPICE path -- the own-cell path shifts by one, see samp0()):
   period 0        idle -- reset releases
   periods 1-2     SAMPLE. Top plate to vcm, every bottom plate to vin.
                   The top switch opens 0.2T EARLY: bottom-plate sampling, so
@@ -29,11 +34,12 @@ THE SEQUENCE (one master clock, everything else derived):
   live, then held at whatever was captured. That is the whole SAR -- no state
   machine, and no way for a bit to be set by anything but its own decision.
 
-    python tb/sar.py conv   0.9        # one conversion, verbose
-    python tb/sar.py xfer   64         # transfer curve -> INL/DNL
-    python tb/sar.py dac               # the array's 256 static levels
-    python tb/sar.py fft    64         # SNDR / ENOB, coherently sampled
-    python tb/sar.py mc     20         # linearity over capacitor mismatch
+    python tb/sar.py conv 0.9                    # one conversion, verbose
+    python tb/sar.py xfer 256 comparator         # transfer curve -> INL
+    python tb/sar.py dac                         # the array's 256 levels
+    python tb/sar.py fft  64  comparator         # SNDR / ENOB, coherent
+    python tb/sar.py match 6                     # capacitor matching study
+    python tb/sar.py conv 0.9 comparator own     # ...on the OWN cells
 """
 import json
 import math
@@ -62,6 +68,36 @@ VREF = 1.8
 VCM = 0.9           # comparator reference AND the top plate's rest potential
 CMP = "strongarm"   # comparator candidate; overridden from the command line
 
+# Which SAR sequencer: ideal XSPICE digital, or the user's OWN standard cells
+# (spice/sar_logic.sp built from spice/own_cells.sp). "xspice" is the right
+# default for measuring the ANALOG blocks -- it keeps INL/DNL/ENOB properties
+# of the array and the comparator. "own" answers the different question of
+# whether the converter still works when the logic is the real library.
+LOGIC = "xspice"
+
+
+def samp0():
+    """Period index at which the pointer's first stage goes active.
+
+    The own-cell path needs ONE MORE period than the XSPICE path, and the
+    reason is a property of the library rather than a tuning choice: DFF_X1 has
+    no reset, so the clear is synchronous and `rst` must still be high AT a
+    clock edge. That consumes the first edge, so sampling starts one period
+    later and every downstream time shifts with it.
+    """
+    return 2 if LOGIC == "own" else 1
+
+
+def sched():
+    """Every time in the conversion, derived from samp0() so the two logic
+    implementations share one schedule instead of two hand-kept copies."""
+    s = samp0()
+    tr = (s + 2) * T                      # first bit trial starts here
+    return dict(rst_end=(s - 0.5) * T, start_end=(s + 0.5) * T, trials=tr,
+                smp_open=tr - 0.2 * T, bot=tr + 0.05 * T,
+                cclk=tr + 0.5 * T, cap=tr + 0.75 * T,
+                read=(s + 10.5) * T, tend=(s + 11) * T)
+
 # "ideal" is a CONTROL, not a candidate: a B-source sign test with no input
 # capacitance, no kickback and no offset. Running the converter with it says
 # whether an error belongs to the array and the switches or to the comparator
@@ -87,40 +123,47 @@ def sources():
     """Every deterministic waveform. The sample window and the two derived
     clocks depend only on time, never on data, so they are plain PWL/PULSE
     sources rather than gates -- fewer parts and no race to reason about."""
-    t_smp_open = 3 * T - 0.2 * T        # top switch opens EARLY (see header)
-    # ...and the bottom plates leave `vin` LATE -- after the pointer has already
-    # set the MSB. This is not a settling margin, it is a correctness fix, and
-    # it was worth 21 LSB.
+    k = sched()
+    # The bottom plates leave `vin` LATE -- after the pointer has already set
+    # the MSB. This is not a settling margin, it is a correctness fix, and it
+    # was worth 21 LSB.
     #
-    # The pointer flop (clk_delay 0.1 ns) and the dac_bridge (t_rise 0.1 ns) put
-    # the MSB control ~0.2 ns behind the clock edge. Releasing the bottoms on
-    # that same edge therefore left the array at CODE 0 for 200 ps, and at code
-    # 0 the top plate sits at vcm - vin: for any input above mid-rail that is
-    # NEGATIVE (-0.84 V at full scale), which forward-biases the sampling
-    # switch's junction to the substrate and dumps sampled charge on the floor.
-    # The charge does not come back, so the result was a permanent, one-sided,
-    # time-independent code error that grew toward full scale -- exactly the
-    # -21 LSB the ideal-comparator control still showed after the comparator had
-    # been ruled out.
-    t_bot = 3 * T + 0.05 * T
+    # Whatever sets the code (an XSPICE flop plus a bridge, or a real DFF_X1
+    # driving a real INV_X1) lands it some gate delays behind the clock edge.
+    # Releasing the bottoms on that same edge therefore left the array at
+    # CODE 0 for that long, and at code 0 the top plate sits at vcm - vin:
+    # for any input above mid-rail that is NEGATIVE (-0.84 V at full scale),
+    # which forward-biases the sampling switch's junction to the substrate and
+    # dumps sampled charge on the floor. The charge does not come back, so the
+    # result was a permanent, one-sided, time-independent code error that grew
+    # toward full scale -- exactly the -21 LSB the ideal-comparator control
+    # still showed after the comparator itself had been ruled out.
     return f"""* --- reset, and the one-period start pulse that seeds the pointer ---
-vrst rst 0 dc 0 pwl(0 {VDD} {0.5*T:g} {VDD} {0.5*T+1e-10:g} 0 {12*T:g} 0)
-vstart start 0 dc 0 pwl(0 {VDD} {1.5*T:g} {VDD} {1.5*T+1e-10:g} 0 {12*T:g} 0)
+vrst rst 0 dc 0 pwl(0 {VDD} {k['rst_end']:g} {VDD} {k['rst_end']+1e-10:g} 0 {k['tend']:g} 0)
+vstart start 0 dc 0 pwl(0 {VDD} {k['start_end']:g} {VDD} {k['start_end']+1e-10:g} 0 {k['tend']:g} 0)
 * --- master clock: pointer advances on the rising edge ---
 vclk clk 0 dc 0 pulse(0 {VDD} {T:g} 0.1n 0.1n {0.45*T:g} {T:g})
 * --- comparator clock: high through the middle of every trial ---
-vcclk cclk 0 dc 0 pulse(0 {VDD} {3.5*T:g} 0.1n 0.1n {0.4*T:g} {T:g})
+vcclk cclk 0 dc 0 pulse(0 {VDD} {k['cclk']:g} 0.1n 0.1n {0.4*T:g} {T:g})
 * --- capture strobe: rises while the decision is settled and cclk still high -
-vcap cap 0 dc 0 pulse(0 {VDD} {3.75*T:g} 0.1n 0.1n {0.1*T:g} {T:g})
+vcap cap 0 dc 0 pulse(0 {VDD} {k['cap']:g} 0.1n 0.1n {0.1*T:g} {T:g})
 * --- sampling: top plate switch opens 0.2T before the bottom plates move ---
-vsmp  smp  0 dc 0 pwl(0 {VDD} {t_smp_open:g} {VDD} {t_smp_open+1e-10:g} 0 {12*T:g} 0)
-vsmpn smpn 0 dc 0 pwl(0 0 {t_smp_open:g} 0 {t_smp_open+1e-10:g} {VDD} {12*T:g} {VDD})
-vsmpb smpb 0 dc 0 pwl(0 {VDD} {t_bot:g} {VDD} {t_bot+1e-10:g} 0 {12*T:g} 0)
+vsmp  smp  0 dc 0 pwl(0 {VDD} {k['smp_open']:g} {VDD} {k['smp_open']+1e-10:g} 0 {k['tend']:g} 0)
+vsmpn smpn 0 dc 0 pwl(0 0 {k['smp_open']:g} 0 {k['smp_open']+1e-10:g} {VDD} {k['tend']:g} {VDD})
+vsmpb smpb 0 dc 0 pwl(0 {VDD} {k['bot']:g} {VDD} {k['bot']+1e-10:g} 0 {k['tend']:g} 0)
 """
 
 
 def digital_shared():
-    """Pointer chain + the logic-level plumbing every copy shares."""
+    """Pointer chain + the logic-level plumbing every copy shares.
+
+    Only the XSPICE path has a SHARED pointer. In the own-cell path the pointer
+    lives inside each `sar_logic` instance, which is what a real converter has
+    -- one sequencer per converter -- and is why that path costs 682 transistors
+    per copy instead of a handful of code models.
+    """
+    if LOGIC == "own":
+        return "* (own-cell logic: the pointer is inside each sar_logic)"
     lines = ["abr_ctl [clk rst start cap] [dclk drst dstart dcap] adc_bridge",
              "apd dlo d_pulldown"]
     # 11 pointer stages: s0,s1 = sample; s2..s9 = the eight trials; s10 = done
@@ -158,19 +201,23 @@ def copy(k, vin_expr, cmp_name=None):
     # is still under the input -> keep this bit. Bridging cn rather than cp is
     # the whole polarity of the search; getting it backwards would converge to
     # the complement of the answer, which is why `conv` prints the residue.
-    L.append(f"abrc{k} [cn{k}] [dkeep{k}] adc_bridge")
-    for b in range(8):
-        s = f"ds{2 + (7 - b)}"          # pointer stage that owns bit b
-        L.append(f"aand{k}_{b} [dcap {s}] dgc{k}_{b} d_and")
-        L.append(f"aff{k}_{b} dkeep{k} dgc{k}_{b} dlo drst dq{k}_{b} "
-                 f"dq{k}_{b}n d_dff")
-        L.append(f"aor{k}_{b} [{s} dq{k}_{b}] dc{k}_{b} d_or")
-    outs = " ".join(f"dc{k}_{b}" for b in range(8))
-    anas = " ".join(f"c{k}_{b}" for b in range(8))
-    L.append(f"abro{k} [{outs}] [{anas}] dac_bridge")
-    qouts = " ".join(f"dq{k}_{b}" for b in range(8))
-    qanas = " ".join(f"q{k}_{b}" for b in range(8))
-    L.append(f"abrq{k} [{qouts}] [{qanas}] dac_bridge")
+    if LOGIC == "own":
+        # The real library. `cn` drives the cell input DIRECTLY -- no bridge,
+        # because a regenerated latch output IS a logic level -- and the cells'
+        # outputs drive the array's bottom plates directly, for the same reason.
+        ctln = " ".join(f"c{k}_{b}" for b in range(7, -1, -1))
+        L.append(f"xlogic{k} clk cap rst start cn{k} {ctln} vdd vss sar_logic")
+    else:
+        L.append(f"abrc{k} [cn{k}] [dkeep{k}] adc_bridge")
+        for b in range(8):
+            s = f"ds{2 + (7 - b)}"      # pointer stage that owns bit b
+            L.append(f"aand{k}_{b} [dcap {s}] dgc{k}_{b} d_and")
+            L.append(f"aff{k}_{b} dkeep{k} dgc{k}_{b} dlo drst dq{k}_{b} "
+                     f"dq{k}_{b}n d_dff")
+            L.append(f"aor{k}_{b} [{s} dq{k}_{b}] dc{k}_{b} d_or")
+        outs = " ".join(f"dc{k}_{b}" for b in range(8))
+        anas = " ".join(f"c{k}_{b}" for b in range(8))
+        L.append(f"abro{k} [{outs}] [{anas}] dac_bridge")
     return "\n".join(L)
 
 
@@ -191,13 +238,27 @@ def netlist(vins, cmp_name=None, extra_meas="", dac_params="", tstop=None):
     inc = "\n".join((SPICE / f"{n}.sp").read_text() for n in needs)
     if sub is not None:
         inc += "\n" + (SPICE / f"{sub}.sp").read_text()
+    if LOGIC == "own":
+        inc += "\n" + (SPICE / "own_cells.sp").read_text()
+        inc += "\n" + (SPICE / "sar_logic.sp").read_text()
     body = "\n".join(copy(k, f"{v:.9g}", cmp_name) for k, v in enumerate(vins))
+    # Read the DAC CONTROL nodes, not a separate register bridge: after the
+    # last trial every pointer stage that owns a bit is low, so control = q.
+    # One readout that works for both logic implementations.
+    kk = sched()
     ms = []
     for k in range(len(vins)):
         for b in range(8):
-            ms.append(f"meas tran q{k}_{b} find v(q{k}_{b}) "
-                      f"at={11.5*T:g}")
-    tstop = tstop or 12 * T
+            ms.append(f"meas tran q{k}_{b} find v(c{k}_{b}) "
+                      f"at={kk['read']:g}")
+    tstop = tstop or kk["tend"]
+    # SAVE ONLY WHAT IS MEASURED. ngspice keeps every vector at every timepoint
+    # by default; with the own-cell logic that is ~700 transistors per copy and
+    # it asked for 10.7 GB on an 8-copy run and died. The circuit still solves
+    # in full -- this only stops the results being hoarded.
+    save = "save " + " ".join(
+        [f"c{k}_{b}" for k in range(len(vins)) for b in range(8)]
+        + [f"top{k}" for k in range(len(vins))])
     return f"""* {len(vins)}-way SAR conversion, comparator={cmp_name}
 {header()}
 {inc}
@@ -208,9 +269,10 @@ vvcm vcm 0 dc {VCM}
 {sources()}
 {digital_shared()}
 {body}
-{MODELS}
+{MODELS if LOGIC != 'own' else ''}
 .tran 20p {tstop:g}
 .control
+{save}
 run
 {chr(10).join(ms)}
 {extra_meas}
@@ -253,11 +315,14 @@ def run_conv(vin, cmp_name=None):
           f"err {'--' if code is None else code-ideal} LSB)", flush=True)
     rows = read_wrdata(OUT / f"{tag}_top.txt", 2)
     if rows:
-        # the residue should collapse toward vcm; print the trial endpoints
-        for i in range(3, 11):
-            t = (i + 0.45) * T
+        # the residue should collapse toward vcm; print the trial endpoints.
+        # Trial times come from sched(), not a hardcoded 3..11 -- the own-cell
+        # path starts a period later and the trace would silently misalign.
+        t0 = sched()["trials"]
+        for i in range(8):
+            t = t0 + (i + 0.45) * T
             near = min(rows, key=lambda r: abs(r[0] - t))
-            print(f"    trial {i-3} (bit {10-i}): top = {near[1]:+.4f} V "
+            print(f"    trial {i} (bit {7-i}): top = {near[1]:+.4f} V "
                   f"({(near[1]-VCM)*1e3:+8.2f} mV from vcm)", flush=True)
     return dict(vin=vin, code=code, ideal=ideal)
 
@@ -562,7 +627,10 @@ def main():
     arg = sys.argv[2] if len(sys.argv) > 2 else None
     if len(sys.argv) > 3:
         CMP = sys.argv[3]
-    print(f"=== SAR8, comparator = {CMP} ===", flush=True)
+    if len(sys.argv) > 4:
+        globals()["LOGIC"] = sys.argv[4]
+    print(f"=== SAR8, comparator = {CMP}, logic = {LOGIC} ===",
+          flush=True)
     res = {}
     if what == "conv":
         res["conv"] = run_conv(float(arg) if arg else 0.9)

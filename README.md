@@ -445,6 +445,19 @@ error 0.00 %, INL 0.00 LSB over the sampled transfer curve, SNDR 50.26 dB
 > drives the top plate outside the rails, not even for one gate delay — the node
 > is floating and the rails are diodes.**
 
+**And the sequencing now runs on the user's own standard cells.** `spice/sar_logic.sp`
+is the same SAR sequencer built from `stdcells` — **89 cells, 682 transistors**
+(27 INV_X1, 8 NAND2_X1, 35 NOR2_X1, 19 DFF_X1), no foundry cells anywhere in it.
+Eight spot conversions spanning the range come back exact, including codes 248
+and 254 — the band the race above used to corrupt. Two library properties shaped
+it, and neither is a modelling convenience: **DFF_X1 has no reset**, so every
+clear is synchronous and `rst` must still be high *at* a clock edge (which costs
+one clock period); and **NAND3/NOR3 are not in the library**, so every function
+is built from two-input gates. The ideal-digital sequencer stays the default and
+stays the basis for the 256-code result — that is what keeps INL/DNL/ENOB
+properties of the array and the comparator rather than of a logic
+implementation.
+
 Three things found along the way that outlive this leg (the race above is
 the first):
 
