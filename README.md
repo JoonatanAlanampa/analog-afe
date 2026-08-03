@@ -1,9 +1,24 @@
-# analog-afe — the console's analog front-end
+# analog-afe — an analog front-end, designed from device physics up
 
-Own analog blocks for the [console](https://github.com/JoonatanAlanampa/console),
-designed from device physics up on sky130 and simulated at transistor
-level: **op-amp → comparator → SAR ADC**, plus the ring-oscillator clock
-that comes over from the vertical-slice test structures.
+Own analog blocks designed from device physics up on sky130 and simulated
+at transistor level: **op-amp → comparator → SAR ADC**, plus the
+ring-oscillator clock that comes over from the vertical-slice test
+structures.
+
+> **Scope, since 2026-08-02: these blocks have no silicon destination, and
+> that is a deliberate decision, not a stall.** The
+> [console](https://github.com/JoonatanAlanampa/console) is an FPGA target
+> and will not be taped out, and
+> [`vertical-slice`](https://github.com/JoonatanAlanampa/vertical-slice) is
+> the one remaining ASIC tapeout on this project — there is no analog slot.
+> So **phases 5 (TT analog slot) and 6 (console integration) in
+> [`PLAN.md`](PLAN.md) are dead**, and phases 0-4 stand as design and
+> verification work: the classic-EE leg proven in simulation, not shipped.
+> The console still sets the *specification* — every load corner, swing and
+> distortion budget here is traced to its audio path — because a block
+> designed against a real system is worth more than one designed against
+> round numbers. Read "the console's audio buffer" below as the **design
+> target that produced the numbers**, not as a delivery plan.
 
 This is the classic-EE leg of a full-stack goal whose other legs are
 already standing — a calibrated
@@ -15,7 +30,15 @@ digital chips (one
 and a hand-designed cartridge PCB. Analog is the part the digital chain
 never makes you think about: biasing, matching, noise, offset, headroom.
 
-**Status: phase 1 complete.** Phase 0 (spec, harness, two candidates, four
+**Status: the leg is DONE — phases 0-4 complete.** Op-amp, layout,
+comparator and converter are all closed: the SAR ADC returns **all 256 codes
+exactly** (INL 0.00 LSB, ENOB 8.06), with its sequencer built from the
+[own standard cells](https://github.com/JoonatanAlanampa/stdcells) — 89
+cells, 682 transistors, no foundry cells anywhere in it
+([`docs/sar.md`](docs/sar.md)). Phases 5-6 are dead by the scope note above.
+The rest of this page is how it got there.
+
+Phase 0 (spec, harness, two candidates, four
 benches) is done and the topology **decision is made** — two-stage Miller for
 the audio buffer, the 5T OTA kept for the high-Z comparator/SAR blocks
 ([`docs/topology-review.md`](docs/topology-review.md)). Phase-1
@@ -26,7 +49,7 @@ THD was found **failing** at the 1 V pp spec swing (1.44 %) and is now
 bench pinned the residual-distortion floor to the input pair (not the output),
 and a **constant-gm bias generator with a verified start-up** now replaces the
 ideal current source ([`docs/biasgen.md`](docs/biasgen.md)). **Phase 2 (layout)
-is well under way** — *every device of the two-stage amplifier is now drawn and
+is complete** — *every device of the two-stage amplifier is drawn and
 verified*: both active stages (the **5T core** and the **class-A output**) are
 routed and **LVS-clean**, and both passives (the **nulling resistor** and the
 **MIM compensation cap**) are drawn and **extraction-verified** at value; the
@@ -56,10 +79,12 @@ alternative, a bigger `Cc`, never did ([`docs/parasitics-rrf2.md`](docs/parasiti
 
 ## The block under design
 
-Not "an op-amp" — the console's **audio output buffer**. Today the
-console makes sound with a sigma-delta bitstream and the cartridge Pmod's
-external RC network and amplifier. The mixed-signal console replaces both
-with silicon we designed:
+Not "an op-amp" — it is specified as the console's **audio output buffer**.
+The console makes sound with a sigma-delta bitstream and the cartridge
+Pmod's external RC network and amplifier; this block is designed to be what
+would replace both, if the console were ever mixed-signal silicon (it will
+not be — see the scope note at the top). That hypothetical is what fixes
+every number in the spec:
 
     chiptune voices --> our DAC --> THIS BUFFER --> coupling cap --> jack
 

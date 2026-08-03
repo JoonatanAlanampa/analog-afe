@@ -1,13 +1,26 @@
 # PLAN — analog front-end (`analog-afe`)
 
 The classic-EE leg of the full-stack goal: own analog blocks designed
-from device physics up, validated on a TinyTapeout analog slot, then
-integrated into the console so the finale is mixed-signal.
+from device physics up and closed in simulation.
+
+> ⛔ **SCOPE CHANGE 2026-08-02 (user directive): there is no silicon path
+> for these blocks, and phases 5 and 6 below are DEAD.** The console is an
+> FPGA target and is not being taped out; `vertical-slice` is the only
+> remaining ASIC tapeout on this project and it is digital. This plan
+> originally read "validated on a TinyTapeout analog slot, then integrated
+> into the console so the finale is mixed-signal" — that route no longer
+> exists. **Phases 0-4 were completed anyway and are the deliverable**: the
+> op-amp, its layout, the comparator and a working SAR ADC, verified at
+> transistor level, with the SAR sequencer built from the own standard
+> cells. The console still supplies the *specification* (loads, swing,
+> distortion budget) because designing against a real system beats
+> designing against round numbers.
 
 Chain: **op-amp → comparator → SAR ADC**, plus the ring-oscillator clock
 that comes over from the vertical-slice test structures.
 
-Console roles (why each block exists):
+Console roles (the specification each block was designed against — not a
+delivery plan, see the scope note above):
 - op-amp + DAC → audio output, replacing the sigma-delta bitstream and
   the cartridge Pmod's external RC/amp
 - comparator + SAR ADC → paddle-controller input, period-authentic
@@ -424,18 +437,36 @@ transient. Results in `docs/sar.md`; bench `tb/sar.py`.
   scale with the drawing: 128 unit cells = 631.0 fF, one 128×-long capacitor =
   571.2 fF. That is ~24 LSB of DNL, from a choice that looks like bookkeeping.
 
-## Phase 5 — TT analog slot
+## ⛔ Phase 5 — TT analog slot — **DEAD (user directive 2026-08-02)**
 
-- [ ] Standalone validation chip, the way the cartridge Pmod rehearsed
-      the memory system before any silicon depended on it
-- [ ] Bring-up script, in the shape proven by `tt-cordic/bringup/`
+There is no analog slot in this project's future. `vertical-slice` is the
+last ASIC tapeout and it is digital. Kept for the record only:
 
-## Phase 6 — console integration
+- ~~Standalone validation chip, the way the cartridge Pmod rehearsed
+  the memory system before any silicon depended on it~~
+- ~~Bring-up script, in the shape proven by `tt-cordic/bringup/`~~
 
-- [ ] Audio path: chiptune voices → DAC → buffer → jack
-- [ ] Paddle path: pot → comparator/SAR → CPU register
-- [ ] Mixed-signal budget: +2–4 analog pins (~€100–200 over the digital
-      tiles)
+## ⛔ Phase 6 — console integration — **DEAD (user directive 2026-08-02)**
+
+The console is an FPGA target; it keeps the sigma-delta bitstream and the
+cartridge Pmod's external RC/amp, which work. Kept for the record only:
+
+- ~~Audio path: chiptune voices → DAC → buffer → jack~~
+- ~~Paddle path: pot → comparator/SAR → CPU register~~
+- ~~Mixed-signal budget: +2–4 analog pins (~€100–200 over the digital tiles)~~
+
+## Accepted and documented, not blocking (the leg closed with these open)
+
+- **Offset margin is the real one**: σ 6.86 mV with the pre-amp against a
+  7.03 mV budget = 2 % of margin. The pre-amp wins on *kickback* (16× at
+  each worst point), not on offset — the textbook argument runs backwards
+  here. See `docs/sar.md`.
+- Kickback exceeds the 3.5 fC budget at large overdrive (−8.48 fC worst
+  for the pre-amp, −136.7 fC bare) even though it is inside budget at
+  threshold, which is where it is usually quoted.
+- The real 500 kHz conversion rate was never simulated — every run is 10×
+  faster.
+- No converter-level PVT or mismatch sweep.
 
 ## Rules for this repo
 

@@ -11,7 +11,12 @@ Today the console makes sound the digital way: a sigma-delta bitstream on
 pass → volume trim → 47 µF → 3.5 mm jack. (See `pmod-cartridge/README.md`,
 section "Audio chain".)
 
-The mixed-signal console replaces the *bitstream and the external analog*
+⚠️ **This is the specification's premise, not a plan** — since 2026-08-02 the
+console is an FPGA target and none of these blocks is going to silicon (see
+`../README.md`, scope note). The premise is kept because it is what makes every
+number below derivable rather than invented.
+
+A mixed-signal console would replace the *bitstream and the external analog*
 with silicon we designed:
 
     chiptune voices --> our DAC --> THIS BUFFER --> coupling cap --> jack
